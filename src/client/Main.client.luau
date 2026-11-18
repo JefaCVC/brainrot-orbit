@@ -28,6 +28,8 @@ local playerGui = player:WaitForChild("PlayerGui")
 -- Server -> client wiring. Each remote is waited for once here, which also
 -- warms the Remotes cache for every controller that fires back.
 local stateRemote = Remotes.waitFor("StateUpdate")
+local stateRemoteMissing = stateRemote == nil
+local didToastMissingState = false
 if stateRemote then
 	stateRemote.OnClientEvent:Connect(function(state: { [string]: any })
 		ClientState.setState(state)
@@ -70,6 +72,13 @@ end
 -- the HUD appears and the server starts sending state updates.
 local function onTitleDismissed()
 	HudController.show()
+	-- If the state remote never replicated, the player would otherwise sit
+	-- in front of a dead HUD with no explanation. Toast once, here, where
+	-- the HUD is visible (a toast at startup would fade behind the title).
+	if stateRemoteMissing and not didToastMissingState then
+		didToastMissingState = true
+		HudController.showToast("Connection problem — remotes not found")
+	end
 	local readyRemote = Remotes.waitFor("PlayerReady")
 	if readyRemote then
 		readyRemote:FireServer()

@@ -44,6 +44,7 @@ local currentTargetRate = 0
 local zorkInBonkRange = false
 local brainrotModelCache: { Model } = {}
 local cacheRefreshedAt = 0
+local lastConnectionToastAt = 0
 
 local function getRootPosition(): Vector3?
 	local character = player.Character
@@ -110,13 +111,14 @@ local function scanContext()
 	local state = ClientState.getState()
 	if not rootPosition or not state then
 		currentAction = "none"
-		HudController.setPrompt(nil)
+		HudController.setPrompt("Connecting to server… (no state yet)")
 		return
 	end
 	local cargo = state.cargo :: { any }
 	local cargoCount = #cargo
 	local cargoCapacity = state.cargoCapacity or 1
 	local myCenter = getMyModuleCenter(state)
+	local nearestWildDistance: number? = nil
 
 	-- 1. Dock: carrying something and standing by one of my empty pods.
 	if cargoCount > 0 and myCenter then
@@ -196,6 +198,9 @@ local function scanContext()
 				if model:IsA("Model") and model.PrimaryPart then
 					local pivot = model:GetPivot().Position
 					local distance = (Vector3.new(pivot.X, 0, pivot.Z) - Vector3.new(rootPosition.X, 0, rootPosition.Z)).Magnitude
+					if not nearestWildDistance or distance < nearestWildDistance then
+						nearestWildDistance = distance
+					end
 					if distance <= bestDistance then
 						best = model
 						bestDistance = distance
@@ -218,8 +223,16 @@ local function scanContext()
 		end
 	end
 
+	-- No action is available: say why, instead of going silent. The prompt
+	-- always shows something once the title is dismissed.
 	currentAction = "none"
-	HudController.setPrompt(nil)
+	if cargoCount >= cargoCapacity then
+		HudController.setPrompt("Cargo full — dock first")
+	elseif nearestWildDistance then
+		HudController.setPrompt(`Nearest brainrot {math.floor(nearestWildDistance)} studs away — get closer`)
+	else
+		HudController.setPrompt("No wild brainrot nearby")
+	end
 end
 
 local function scanZork()
@@ -240,6 +253,14 @@ local function fireRemote(name: string, ...)
 	local remote = Remotes.waitFor(name) :: RemoteEvent?
 	if remote then
 		remote:FireServer(...)
+		return
+	end
+	-- A missing remote must never fail silently again: tell the player,
+	-- throttled so a held key does not flood the toast stack.
+	local now = os.clock()
+	if now - lastConnectionToastAt >= 5 then
+		lastConnectionToastAt = now
+		HudController.showToast("Connection problem — can't reach the server. Rejoin if this persists.")
 	end
 end
 

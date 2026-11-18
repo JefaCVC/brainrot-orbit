@@ -200,6 +200,7 @@ local function onCatchBrainrot(player: Player)
 	end
 	local now = os.clock()
 	if now - runtime.lastCatchAt < BrainrotData.CONFIG.catchCooldownSeconds then
+		toast(player, "Tractor beam recharging…")
 		return
 	end
 	runtime.lastCatchAt = now
@@ -295,7 +296,11 @@ end
 -- from the module and ZORK will not target it.
 local function onLockModule(player: Player)
 	local runtime = PlayerState.get(player)
-	if not runtime or runtime.moduleIndex == 0 then
+	if not runtime then
+		return
+	end
+	if runtime.moduleIndex == 0 then
+		toast(player, "You don't have a module yet!")
 		return
 	end
 	local now = os.clock()
@@ -448,6 +453,7 @@ local function onBonkZork(player: Player)
 	end
 	runtime.lastBonkAt = now
 	if not ThiefService.isZorkActive() then
+		toast(player, "ZORK isn't here right now.")
 		return
 	end
 	local rootPosition = getRootPosition(player)
@@ -456,7 +462,11 @@ local function onBonkZork(player: Player)
 		return
 	end
 	local distance = (Vector3.new(zorkPosition.X, 0, zorkPosition.Z) - Vector3.new(rootPosition.X, 0, rootPosition.Z)).Magnitude
-	if not isFiniteNumber(distance) or distance > BrainrotData.CONFIG.bonkRangeStuds then
+	if not isFiniteNumber(distance) then
+		return
+	end
+	if distance > BrainrotData.CONFIG.bonkRangeStuds then
+		toast(player, "ZORK is too far away — get closer!")
 		return
 	end
 	if ThiefService.bonkZork(player) then

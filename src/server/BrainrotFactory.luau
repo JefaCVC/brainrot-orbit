@@ -31,6 +31,24 @@ local BrainrotFactory = {}
 local WHITE = Color3.fromRGB(255, 255, 255)
 local BLACK = Color3.fromRGB(20, 20, 25)
 
+-- Round 3 made brainrots bigger so they read at a glance against the grey
+-- metal: every species scales 1.4x, except the ones whose body would grow
+-- past ~4.5 studs and no longer fit the 5.2-wide pod glass — those cap at
+-- 1.25x. getRestHeight uses the same effective scale, so pods, pedestals
+-- and wild spawns all keep placing the body center at the right height.
+local GLOBAL_SCALE = 1.4
+local CAP_SCALE = 1.25
+local MAX_BODY_STUDS = 4.5
+
+local function effectiveScale(species: any): number
+	local base = species.scale :: number
+	local baseSize = if species.bodyShape == "Cylinder" then 2.6 else 2.4
+	if baseSize * base * GLOBAL_SCALE > MAX_BODY_STUDS then
+		return base * CAP_SCALE
+	end
+	return base * GLOBAL_SCALE
+end
+
 local function makePart(name: string, shape: string, size: Vector3, color: Color3, position: Vector3): BasePart
 	local part = Instance.new("Part")
 	part.Name = name
@@ -173,7 +191,9 @@ local function addNameTag(model: Model, body: BasePart, title: string, subtitle:
 	tag.Name = "NameTag"
 	tag.Size = UDim2.new(0, 180, 0, 64)
 	tag.StudsOffset = Vector3.new(0, 3.4, 0)
-	tag.MaxDistance = 140
+	-- Tags only render within 45 studs: at 140 every brainrot in the hub
+	-- rendered its tag at once and they piled into an unreadable wall.
+	tag.MaxDistance = 45
 	tag.AlwaysOnTop = false
 	tag.Adornee = body
 
@@ -211,7 +231,7 @@ function BrainrotFactory.getRestHeight(speciesName: string): number
 	if not species then
 		return 1.3
 	end
-	return 1.3 * (species :: any).scale
+	return 1.3 * effectiveScale(species)
 end
 
 -- Builds one brainrot of the given species and mutation at the origin; the
@@ -221,7 +241,7 @@ function BrainrotFactory.buildBrainrotModel(speciesName: string, mutation: strin
 	local species = BrainrotData.getSpecies(speciesName)
 	assert(species ~= nil, `[BrainrotFactory] unknown species {speciesName}`)
 	local data = species :: any
-	local scale = data.scale :: number
+	local scale = effectiveScale(data)
 
 	local bodyColor = data.bodyColor :: Color3
 	local material = Enum.Material.SmoothPlastic
@@ -255,21 +275,48 @@ function BrainrotFactory.buildBrainrotModel(speciesName: string, mutation: strin
 	model.PrimaryPart = body
 
 	addEyes(model, body, scale)
-	addAccessory(model, body, data.accessory, data.accentColor, scale)
+	-- Every species gets a silhouette accessory. One species ships with
+	-- "None" in the data; the factory gives it spots (marshmallow bits on
+	-- a s'more) instead of leaving it bare. The data itself is untouched.
+	local accessory = data.accessory :: string
+	if accessory == "None" then
+		accessory = "Spots"
+	end
+	addAccessory(model, body, accessory, data.accentColor, scale)
 
-	-- A glowing ring under mutated brainrots so the mutation reads at a glance.
-	if mutation ~= "None" then
+	-- Glow rings sit just above the floor the brainrot stands on. The
+	-- model's pivot is the body center, so the ring's height in model
+	-- space is 0.3 + 0.3 * scale — the old fixed 0.1 put the ring under
+	-- the floor for every species. Diameters cap at 4.8 so the rings stay
+	-- inside the pod's own 5.0 glow ring when docked. The mutation ring
+	-- sits 0.12 above the rarity ring (it is the smaller disc), so the
+	-- two never z-fight when both are present.
+	local ringY = 0.3 + 0.3 * scale
+	local function addGlowRing(name: string, diameter: number, color: Color3, yOffset: number)
 		local ring = makePart(
-			"MutationRing",
+			name,
 			"Cylinder",
-			Vector3.new(0.15, 3.2 * scale, 3.2 * scale),
-			BrainrotData.MUTATION_COLORS[mutation],
-			Vector3.new(0, 0.1, 0)
+			Vector3.new(0.2, math.min(diameter, 4.8), math.min(diameter, 4.8)),
+			color,
+			Vector3.new(0, ringY + yOffset, 0)
 		)
 		ring.CFrame = CFrame.new(ring.Position) * CFrame.Angles(0, 0, math.rad(90))
 		ring.Material = Enum.Material.Neon
 		ring.CanCollide = false
 		ring.Parent = model
+	end
+
+	-- A glowing ring under mutated brainrots so the mutation reads at a glance.
+	if mutation ~= "None" then
+		addGlowRing("MutationRing", 3.2 * scale, BrainrotData.MUTATION_COLORS[mutation], 0.12)
+	end
+
+	-- A rarity glow under Epic, Legendary and Secret brainrots, in the
+	-- rarity color, so the valuable ones stand out across the deck.
+	local rarityRingSize: { [string]: number } = { Epic = 3.4, Legendary = 3.8, Secret = 4.2 }
+	local raritySize = rarityRingSize[data.rarity]
+	if raritySize then
+		addGlowRing("RarityRing", raritySize * scale, BrainrotData.RARITY_COLORS[data.rarity], 0)
 	end
 
 	local rate = BrainrotData.getRate(data.name, mutation)

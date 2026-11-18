@@ -6,6 +6,7 @@
 -- services start. Player characters load only after this script runs, via
 -- GameService, because Players.CharacterAutoLoads is false in the project.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
@@ -20,7 +21,7 @@ local ThiefService = requireModule(ServerScriptService:WaitForChild("ThiefServic
 local WildSpawner = requireModule(ServerScriptService:WaitForChild("WildSpawner"))
 local WorldBuilder = requireModule(ServerScriptService:WaitForChild("WorldBuilder"))
 
--- 1. The whitelisted remotes, under ReplicatedStorage/Remotes.
+-- 1. The whitelisted remotes, under ReplicatedStorage/OrbitRemotes.
 Remotes.createAll()
 
 -- 2. The station itself: decks, modules, garden, airlock, pedestals, crew.
@@ -37,5 +38,31 @@ ThiefService.start()
 
 -- 5. The core loop: remote handlers, income tick, player lifecycle.
 GameService.start()
+
+-- 6. Spawn view: every character (first spawn and respawns) starts on the
+-- observation deck facing the planet through the north windows, with the
+-- title pedestals and the wild brainrots in front of them. The root part
+-- sits 3 studs above the deck so the character stands on the floor instead
+-- of sinking into it.
+local SPAWN_CFRAME = CFrame.lookAt(Vector3.new(0, 3, 34), Vector3.new(350, 10, -450))
+
+local function positionAtSpawn(character: any)
+	local root = character:WaitForChild("HumanoidRootPart")
+	if root then
+		character:PivotTo(SPAWN_CFRAME)
+	end
+end
+
+local function onPlayerAddedForSpawn(player: any)
+	player.CharacterAdded:Connect(positionAtSpawn)
+	if player.Character then
+		task.spawn(positionAtSpawn, player.Character)
+	end
+end
+
+Players.PlayerAdded:Connect(onPlayerAddedForSpawn)
+for _, player in Players:GetPlayers() do
+	task.spawn(onPlayerAddedForSpawn, player)
+end
 
 print("[BRAINROT ORBIT] Server ready — catch them, dock them, get rich before the storm hits.")

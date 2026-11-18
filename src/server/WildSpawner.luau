@@ -85,19 +85,40 @@ local function rollMutation(): string
 	return "None"
 end
 
-local function pickWanderTarget(zone: string, from: Vector3): Vector3
+-- True when a point is at least 10 studs from every other wild brainrot,
+-- so wanderers spread out across the deck instead of clumping into one
+-- pile with overlapping name tags.
+local function isSeparated(candidate: Vector3, selfId: string?): boolean
+	for id, other in wild do
+		if id ~= selfId then
+			local otherPos = other.model:GetPivot().Position
+			local distance = (Vector3.new(candidate.X, 0, candidate.Z) - Vector3.new(otherPos.X, 0, otherPos.Z)).Magnitude
+			if distance < 10 then
+				return false
+			end
+		end
+	end
+	return true
+end
+
+local function pickWanderTarget(zone: string, from: Vector3, selfId: string?): Vector3
+	local fallback: Vector3? = nil
 	for _ = 1, 8 do
 		local angle = rng:NextNumber() * math.pi * 2
 		local distance = 8 + rng:NextNumber() * 18
 		local candidate = from + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
 		local radius = Vector3.new(candidate.X, 0, candidate.Z).Magnitude
-		if zone == "hub" and radius < 66 then
-			return candidate
-		elseif zone == "deck" and radius > 78 and radius < 108 then
-			return candidate
+		local inZone = (zone == "hub" and radius < 66) or (zone == "deck" and radius > 78 and radius < 108)
+		if inZone then
+			if not fallback then
+				fallback = candidate
+			end
+			if isSeparated(candidate, selfId) then
+				return candidate
+			end
 		end
 	end
-	return from
+	return fallback or from
 end
 
 -- Spawns one wild brainrot at a position. Species/mutation may be forced
@@ -217,7 +238,7 @@ local function onHeartbeat(dt: number)
 		local toTarget = Vector3.new(target.X - current.X, 0, target.Z - current.Z)
 		local distance = toTarget.Magnitude
 		if distance < 1.5 or now >= entry.nextRetargetAt then
-			entry.target = pickWanderTarget(entry.zone, current)
+			entry.target = pickWanderTarget(entry.zone, current, entry.id)
 			entry.nextRetargetAt = now + 5 + rng:NextNumber() * 5
 			continue
 		end

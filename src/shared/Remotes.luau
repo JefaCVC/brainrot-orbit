@@ -1,10 +1,16 @@
 --!strict
 -- Remotes
 -- The whitelist of every RemoteEvent in BRAINROT ORBIT. The server creates
--- exactly these remotes (and no others) under ReplicatedStorage/Remotes at
--- startup; the client waits for them by name. Splitting client-to-server and
--- server-to-client names in one table keeps the API surface auditable: a
+-- exactly these remotes (and no others) under ReplicatedStorage/OrbitRemotes
+-- at startup; the client waits for them by name. Splitting client-to-server
+-- and server-to-client names in one table keeps the API surface auditable: a
 -- remote that is not listed here does not exist.
+--
+-- The folder is deliberately NOT named "Remotes": this ModuleScript itself
+-- is named "Remotes" (Rojo syncs it under ReplicatedStorage), so a folder
+-- with the same name made WaitForChild("Remotes") return the ModuleScript
+-- and every client remote lookup timed out (round 3 bug fix — the client
+-- was completely deaf and mute until the folder was renamed).
 --
 -- Client -> server remotes carry INTENT only (never an outcome): the server
 -- re-derives every effect from its own state and validates every argument.
@@ -45,7 +51,7 @@ local remotesFolder: Instance? = nil
 -- called once by Main.server.luau before any player can join.
 function Remotes.createAll(): Instance
 	local folder = Instance.new("Folder")
-	folder.Name = "Remotes"
+	folder.Name = "OrbitRemotes"
 	for _, name in Remotes.CLIENT_TO_SERVER do
 		local remote = Instance.new("RemoteEvent")
 		remote.Name = name
@@ -66,9 +72,13 @@ end
 function Remotes.waitFor(name: string): RemoteEvent?
 	local folder = remotesFolder
 	if not folder then
-		folder = ReplicatedStorage:WaitForChild("Remotes", 10)
+		folder = ReplicatedStorage:WaitForChild("OrbitRemotes", 10)
 		if not folder then
-			warn(`[Remotes] Remotes folder did not replicate within 10s; cannot find {name}`)
+			warn(`[Remotes] OrbitRemotes folder did not replicate within 10s; cannot find {name}`)
+			return nil
+		end
+		if not folder:IsA("Folder") then
+			warn(`[Remotes] Expected OrbitRemotes to be a Folder, found {folder.ClassName}; cannot find {name}`)
 			return nil
 		end
 		remotesFolder = folder

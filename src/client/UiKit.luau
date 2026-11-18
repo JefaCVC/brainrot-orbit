@@ -19,7 +19,7 @@ local TextService = game:GetService("TextService")
 
 local UiKit = {}
 
-UiKit.PANEL_BG = Color3.fromRGB(14, 22, 38)
+UiKit.PANEL_BG = Color3.fromRGB(28, 38, 58)
 UiKit.PANEL_BG_TRANSPARENCY = 0.12
 UiKit.ACCENT = Color3.fromRGB(90, 180, 255)
 UiKit.GOLD = Color3.fromRGB(255, 200, 60)
@@ -43,6 +43,20 @@ function UiKit.makeFrame(parent: Instance, name: string, position: UDim2, size: 
 	corner.CornerRadius = UDim.new(0, 8)
 	corner.Parent = frame
 	return frame
+end
+
+-- A thin accent strip across the top of a panel, inset from the rounded
+-- corners so it never overflows the panel's edge.
+function UiKit.makeHeaderStrip(parent: Frame, color: Color3): Frame
+	local strip = Instance.new("Frame")
+	strip.Name = "HeaderStrip"
+	strip.Position = UDim2.new(0, 8, 0, 0)
+	strip.Size = UDim2.new(1, -16, 0, 4)
+	strip.BackgroundColor3 = color
+	strip.BackgroundTransparency = 0
+	strip.BorderSizePixel = 0
+	strip.Parent = parent
+	return strip
 end
 
 -- A rounded scrolling frame with a thin scrollbar, for grids that outgrow

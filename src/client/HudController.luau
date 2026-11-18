@@ -45,11 +45,26 @@ local bannerLabel: TextLabel? = nil
 local rosterFrame: Frame? = nil
 local rosterHeader: TextLabel? = nil
 local rosterRows: Frame? = nil
+local rosterStrip: Frame? = nil
 local lockButton: TextButton? = nil
 local cargoLabel: TextLabel? = nil
 local promptLabel: TextLabel? = nil
 local toastContainer: Frame? = nil
 local bannerHideAt = 0
+
+-- The eight module accent colors (mirrors the server's WorldBuilder
+-- table): the MY MODULE panel's header strip takes the player's own
+-- module color so the panel reads as theirs at a glance.
+local MODULE_ACCENTS = {
+	Color3.fromRGB(74, 163, 255),
+	Color3.fromRGB(88, 214, 141),
+	Color3.fromRGB(255, 130, 180),
+	Color3.fromRGB(255, 160, 60),
+	Color3.fromRGB(176, 108, 255),
+	Color3.fromRGB(60, 220, 220),
+	Color3.fromRGB(255, 215, 60),
+	Color3.fromRGB(255, 100, 100),
+} :: { any }
 
 local BANNER_COLORS: { [string]: any } = {
 	["storm-warning"] = Color3.fromRGB(255, 90, 70),
@@ -72,27 +87,32 @@ local function buildHud(playerGui: Instance)
 
 	-- Top bar: centered, clear of the top-left Roblox menu buttons.
 	local topBar = UiKit.makeFrame(gui, "TopBar", UDim2.new(0.5, -280, 0, 8), UDim2.new(0, 560, 0, 40), UiKit.PANEL_BG, UiKit.PANEL_BG_TRANSPARENCY)
+	UiKit.makeHeaderStrip(topBar, UiKit.GOLD)
 	creditsLabel = UiKit.makeLabel(topBar, "Credits", UDim2.new(0, 8, 0, 0), UDim2.new(0, 180, 1, 0), "CREDITS  $0", 19, UiKit.GOLD, true)
 	creditsLabel.TextXAlignment = Enum.TextXAlignment.Left
 	rateLabel = UiKit.makeLabel(topBar, "Rate", UDim2.new(0, 188, 0, 0), UDim2.new(0, 200, 1, 0), "$0/s  (x1)", 19, UiKit.TEXT, true)
 	rebirthLabel = UiKit.makeLabel(topBar, "Rebirths", UDim2.new(0, 388, 0, 0), UDim2.new(0, 164, 1, 0), "RING 0", 19, UiKit.ACCENT, true)
 	rebirthLabel.TextXAlignment = Enum.TextXAlignment.Right
 
-	-- Mission strip: the next goal is always visible.
-	local missionStrip = UiKit.makeFrame(gui, "MissionStrip", UDim2.new(0.5, -280, 0, 52), UDim2.new(0, 560, 0, 28), UiKit.PANEL_BG, 0.25)
-	missionLabel = UiKit.makeLabel(missionStrip, "Mission", UDim2.new(0, 8, 0, 0), UDim2.new(1, -16, 1, 0), "MISSION 1/3: Catch a brainrot (E)", 15, UiKit.TEXT, true)
+	-- Mission strip: the next goal is always visible. It sits 8 px below
+	-- the top bar now (was 4), so the stack breathes a little.
+	local missionStrip = UiKit.makeFrame(gui, "MissionStrip", UDim2.new(0.5, -280, 0, 56), UDim2.new(0, 560, 0, 28), UiKit.PANEL_BG, 0.25)
+	UiKit.makeHeaderStrip(missionStrip, UiKit.ACCENT)
+	missionLabel = UiKit.makeLabel(missionStrip, "Mission", UDim2.new(0, 8, 0, 0), UDim2.new(1, -16, 1, 0), "MISSION 1/4: Catch a brainrot (E)", 15, UiKit.TEXT, true)
 
 	-- Storm countdown: always visible, turns red as the storm closes in.
-	local stormStrip = UiKit.makeFrame(gui, "StormStrip", UDim2.new(0.5, -280, 0, 84), UDim2.new(0, 560, 0, 26), UiKit.PANEL_BG, 0.35)
+	local stormStrip = UiKit.makeFrame(gui, "StormStrip", UDim2.new(0.5, -280, 0, 88), UDim2.new(0, 560, 0, 26), UiKit.PANEL_BG, 0.35)
 	stormLabel = UiKit.makeLabel(stormStrip, "Storm", UDim2.new(0, 8, 0, 0), UDim2.new(1, -16, 1, 0), "NEXT SOLAR STORM IN 1:00", 15, UiKit.MUTED, true)
 
 	-- Event banner: transient announcements (Golden Hour, Meteor, ZORK).
-	bannerFrame = UiKit.makeFrame(gui, "EventBanner", UDim2.new(0.5, -280, 0, 114), UDim2.new(0, 560, 0, 34), UiKit.PANEL_BG, 0.1)
+	bannerFrame = UiKit.makeFrame(gui, "EventBanner", UDim2.new(0.5, -280, 0, 118), UDim2.new(0, 560, 0, 34), UiKit.PANEL_BG, 0.1)
 	bannerFrame.Visible = false
 	bannerLabel = UiKit.makeLabel(bannerFrame, "BannerText", UDim2.new(0, 8, 0, 0), UDim2.new(1, -16, 1, 0), "", 17, UiKit.TEXT, true)
 
-	-- Roster panel: MY MODULE (n/n) on the right side.
+	-- Roster panel: MY MODULE (n/n) on the right side. Its header strip
+	-- takes the player's module accent color once state arrives.
 	rosterFrame = UiKit.makeFrame(gui, "Roster", UDim2.new(1, -262, 0, 60), UDim2.new(0, 250, 0, 34), UiKit.PANEL_BG, UiKit.PANEL_BG_TRANSPARENCY)
+	rosterStrip = UiKit.makeHeaderStrip(rosterFrame, UiKit.ACCENT)
 	rosterHeader = UiKit.makeLabel(rosterFrame, "Header", UDim2.new(0, 8, 0, 0), UDim2.new(1, -16, 0, 30), "MY MODULE (0/4)", 16, UiKit.TEXT, true)
 	rosterHeader.TextXAlignment = Enum.TextXAlignment.Left
 	rosterRows = UiKit.makeFrame(rosterFrame, "Rows", UDim2.new(0, 0, 0, 30), UDim2.new(1, 0, 0, 0), UiKit.PANEL_BG, 1)
@@ -167,6 +187,14 @@ local function rebuildRoster(state: { [string]: any })
 	local podsUsed = state.podsUsed or 0
 	local podsMax = state.podsMax or 4
 	rosterHeader.Text = `MY MODULE ({podsUsed}/{podsMax})`
+	if rosterStrip then
+		local moduleIndex = state.moduleIndex or 0
+		if typeof(moduleIndex) == "number" and moduleIndex >= 1 and moduleIndex <= #MODULE_ACCENTS then
+			rosterStrip.BackgroundColor3 = MODULE_ACCENTS[moduleIndex]
+		else
+			rosterStrip.BackgroundColor3 = UiKit.ACCENT
+		end
+	end
 	local rowHeight = 26
 	for i, entry in roster do
 		local y = (i - 1) * rowHeight
