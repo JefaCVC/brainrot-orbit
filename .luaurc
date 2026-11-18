@@ -1,0 +1,1 @@
+{"globals":["game","workspace","script","plugin","shared","Instance","Enum","task","Vector3","Vector2","CFrame","UDim2","UDim","Color3","BrickColor","TweenInfo","RaycastParams","OverlapParams","Random","NumberRange","ColorSequence","NumberSequence","Rect","Axes","Faces","PhysicalProperties","DateTime","warn","tick","stats","DebuggerManager"],"languageMode":"strict"}
