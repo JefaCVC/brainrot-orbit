@@ -12,6 +12,7 @@ type Instance = any
 type TextLabel = any
 type TextButton = any
 type Frame = any
+type ScrollingFrame = any
 type UDim2 = any
 
 local TextService = game:GetService("TextService")
@@ -37,6 +38,28 @@ function UiKit.makeFrame(parent: Instance, name: string, position: UDim2, size: 
 	frame.BackgroundColor3 = background
 	frame.BackgroundTransparency = transparency
 	frame.BorderSizePixel = 0
+	frame.Parent = parent
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = frame
+	return frame
+end
+
+-- A rounded scrolling frame with a thin scrollbar, for grids that outgrow
+-- their panel (the 30-species index). Canvas size is set by the caller.
+function UiKit.makeScrollingFrame(parent: Instance, name: string, position: UDim2, size: UDim2, background: Color3, transparency: number): ScrollingFrame
+	local frame = Instance.new("ScrollingFrame")
+	frame.Name = name
+	frame.Position = position
+	frame.Size = size
+	frame.BackgroundColor3 = background
+	frame.BackgroundTransparency = transparency
+	frame.BorderSizePixel = 0
+	frame.ScrollBarThickness = 6
+	frame.ScrollBarImageColor3 = Color3.fromRGB(90, 120, 170)
+	frame.ScrollingDirection = Enum.ScrollingDirection.Y
+	frame.ElasticBehavior = Enum.ElasticBehavior.Never
+	frame.CanvasSize = UDim2.new(0, 0, 0, 0)
 	frame.Parent = parent
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 8)

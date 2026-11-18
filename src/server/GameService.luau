@@ -8,7 +8,8 @@
 --
 -- This module also runs the income tick (pods pay credits every second),
 -- pushes HUD state to every player, refreshes shield domes, patrols the
--- cleaning robot and owns the player lifecycle (load, module claim, save).
+-- cleaning robot and the delivery drone, blinks the console lights, and
+-- owns the player lifecycle (load, module claim, save).
 
 -- Engine types used in annotations below (the values come from Roblox at runtime).
 type Player = any
@@ -37,6 +38,7 @@ local GameService = {}
 
 local rng = Random.new()
 local robotWaypointIndex = 1
+local droneWaypointIndex = 1
 
 -- Offsets for carried brainrots inside the cargo bubble (up to 3).
 local CARGO_OFFSETS = { Vector3.new(0, 0, 0), Vector3.new(-2.1, 0.4, 0), Vector3.new(2.1, 0.4, 0) }
@@ -227,7 +229,10 @@ local function onCatchBrainrot(player: Player)
 	}
 	addToCargo(runtime, brainrot)
 	PlayerState.addDiscovered(runtime, removed.species)
+	local species = BrainrotData.getSpecies(removed.species)
+	local burstColor = species and BrainrotData.RARITY_COLORS[species.rarity] or Color3.fromRGB(120, 220, 255)
 	fireFx(player, { kind = "beam", from = rootPosition, to = removed.model:GetPivot().Position })
+	fireFx(player, { kind = "burst", position = removed.model:GetPivot().Position, color = burstColor })
 	toast(player, `Caught {removed.species}! Carry it home to your pods.`)
 	completeMissionIfReady(runtime, "caught", 1)
 	GameService.pushState(runtime)
@@ -280,6 +285,7 @@ local function onDockBrainrot(player: Player)
 	if #runtime.cargo == 0 then
 		PlayerState.destroyBubble(runtime)
 	end
+	fireFx(player, { kind = "dock", position = podPos + Vector3.new(0, 3, 0), rate = brainrot.rate, name = brainrot.species })
 	toast(player, `Docked {brainrot.species} — earning ${brainrot.rate}/s!`)
 	completeMissionIfReady(runtime, "docked", 1)
 	GameService.pushState(runtime)
@@ -306,6 +312,7 @@ local function onLockModule(player: Player)
 	runtime.lockCooldownUntil = now + lockSeconds + BrainrotData.CONFIG.lockCooldownSeconds
 	GameService.refreshDomes()
 	toast(player, `Module locked for {lockSeconds}s! Nobody can steal from you.`)
+	completeMissionIfReady(runtime, "locked", 1)
 	GameService.pushState(runtime)
 end
 
@@ -352,10 +359,12 @@ local function onStealBrainrot(player: Player)
 		return
 	end
 	local stolen = bestVictim.docked[bestPod]
+	local stealPosition = (stolen.model :: Model):GetPivot().Position
 	bestVictim.docked[bestPod] = nil
 	PlayerState.syncDockedToProfile(bestVictim)
 	addToCargo(runtime, stolen)
 	PlayerState.addDiscovered(runtime, stolen.species)
+	fireFx(player, { kind = "steal", position = stealPosition })
 	toast(player, `You stole {stolen.species} from {bestVictim.player.Name}! Run home!`)
 	toast(bestVictim.player, `{player.Name} stole your {stolen.species}!`)
 	GameService.pushState(runtime)
@@ -390,6 +399,8 @@ local function onRebirth(player: Player)
 	data.rebirths += 1
 	PlayerState.syncDockedToProfile(runtime)
 	PlayerDataStore.markDirty(player)
+	local rootPosition = getRootPosition(player)
+	fireFx(player, { kind = "confetti", position = rootPosition or Vector3.new(0, 3, 0) })
 	toast(player, `REBIRTH! New station ring — +50% credits forever, +1 pod! (Ring {data.rebirths})`)
 	GameService.pushState(runtime)
 end
@@ -535,6 +546,58 @@ local function robotLoop()
 	end
 end
 
+-- DELIVERY DRONE patrol: the drone hovers at 8 studs between the hub, the
+-- garden and the airlock, bobbing gently as it flies.
+local function droneLoop()
+	local drone = WorldBuilder.DELIVERY_DRONE
+	if not drone then
+		return
+	end
+	local waypoints = WorldBuilder.DRONE_WAYPOINTS
+	while true do
+		local target = waypoints[droneWaypointIndex]
+		droneWaypointIndex = droneWaypointIndex % #waypoints + 1
+		local pivot = drone:GetPivot()
+		local current = pivot.Position
+		local distance = (Vector3.new(target.X, 0, target.Z) - Vector3.new(current.X, 0, current.Z)).Magnitude
+		local duration = math.max(distance / 5, 0.5)
+		local start = os.clock()
+		while os.clock() - start < duration do
+			local alpha = (os.clock() - start) / duration
+			local lerped = current:Lerp(target, alpha)
+			local bob = math.sin(os.clock() * 2.5) * 0.4
+			local pos = Vector3.new(lerped.X, target.Y + bob, lerped.Z)
+			local facing = Vector3.new(target.X, pos.Y, target.Z)
+			if (facing - pos).Magnitude > 0.5 then
+				drone:PivotTo(CFrame.lookAt(pos, facing))
+			else
+				drone:PivotTo(CFrame.new(pos))
+			end
+			task.wait(0.1)
+		end
+		task.wait(2)
+	end
+end
+
+-- Console blink loop: the hub consoles' light strips alternate bright and
+-- dim, so the deck reads as powered and busy.
+local function blinkLoop()
+	local lights = WorldBuilder.CONSOLE_LIGHTS
+	if #lights == 0 then
+		return
+	end
+	local tick = 0
+	while true do
+		task.wait(0.8)
+		tick += 1
+		for i, light in lights do
+			if light.Parent then
+				light.Transparency = if (i + tick) % 2 == 0 then 0 else 0.75
+			end
+		end
+	end
+end
+
 local function onHeartbeat(_dt: number)
 	for _, runtime in PlayerState.getAll() do
 		PlayerState.updateBubblePosition(runtime)
@@ -606,7 +669,7 @@ function GameService.grantDemoModule(runtime: any)
 		{ "Nebula Noodle", "None" },
 		{ "Cosmo Corgi", "Diamond" },
 		{ "Solar Squirrel", "None" },
-		{ "Quasar Quokka", "None" },
+		{ "Galaxy Gator", "None" },
 		{ "Pulsar Panda", "None" },
 		{ "Big Bang Burrito", "Cosmic" },
 	} :: { { string } }
@@ -712,6 +775,8 @@ function GameService.start()
 	RunService.Heartbeat:Connect(onHeartbeat)
 	task.spawn(incomeLoop)
 	task.spawn(robotLoop)
+	task.spawn(droneLoop)
+	task.spawn(blinkLoop)
 end
 
 return GameService

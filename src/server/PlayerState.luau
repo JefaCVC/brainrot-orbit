@@ -305,18 +305,23 @@ function PlayerState.getMissionState(runtime: PlayerRuntime): { index: number, m
 		progress = runtime.profile.data.missionDocked
 	elseif mission.stat == "earned" then
 		progress = runtime.profile.data.missionEarned
+	elseif mission.stat == "locked" then
+		progress = runtime.profile.data.missionLocked
 	end
 	return { index = completed + 1, mission = mission, progress = math.min(progress, mission.goal), complete = false }
 end
 
--- Records mission progress (a catch, a dock, or earned credits). Returns the
--- mission that JUST completed, if any, so the caller can pay its reward.
+-- Records mission progress (a catch, a dock, a lock, or earned credits).
+-- Returns the mission that JUST completed, if any, so the caller can pay
+-- its reward.
 function PlayerState.recordMissionStat(runtime: PlayerRuntime, stat: string, amount: number): any?
 	local data = runtime.profile.data
 	if stat == "caught" then
 		data.missionCaught += amount
 	elseif stat == "docked" then
 		data.missionDocked += amount
+	elseif stat == "locked" then
+		data.missionLocked += amount
 	end
 	PlayerDataStore.markDirty(runtime.player)
 	local state = PlayerState.getMissionState(runtime)

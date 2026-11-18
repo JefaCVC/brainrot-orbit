@@ -1,10 +1,11 @@
 --!strict
 -- BrainrotFactory
--- Builds every creature in BRAINROT ORBIT from plain parts: the 19 brainrot
+-- Builds every creature in BRAINROT ORBIT from plain parts: the 30 brainrot
 -- species (body + eyes + one species accessory + a floating name tag), ZORK
--- the Snatcher, the station crew NPCs and the cleaning robot. No meshes, no
--- asset ids, no animation assets — everything is procedural, so the place
--- file stays small and the game runs identically in Studio and live.
+-- the Snatcher, the station crew NPCs, the cleaning robot and the delivery
+-- drone. No meshes, no asset ids, no animation assets — everything is
+-- procedural, so the place file stays small and the game runs identically in
+-- Studio and live.
 --
 -- A brainrot model is anchored and owned by the server. Its "Animate"
 -- attribute tells the client animator how to move it: "Bob" (docked or on a
@@ -164,10 +165,13 @@ local function addAccessory(model: Model, body: BasePart, accessory: string, acc
 	end
 end
 
+-- Name tag: 180 px wide with a two-line name area, so even the longest
+-- mutated title ("Dark Matter Donut [COSMIC]", 27 chars) wraps instead of
+-- clipping. The subtitle (rate + rarity) always fits on one line.
 local function addNameTag(model: Model, body: BasePart, title: string, subtitle: string, subtitleColor: Color3)
 	local tag = Instance.new("BillboardGui")
 	tag.Name = "NameTag"
-	tag.Size = UDim2.new(0, 140, 0, 52)
+	tag.Size = UDim2.new(0, 180, 0, 64)
 	tag.StudsOffset = Vector3.new(0, 3.4, 0)
 	tag.MaxDistance = 140
 	tag.AlwaysOnTop = false
@@ -175,7 +179,7 @@ local function addNameTag(model: Model, body: BasePart, title: string, subtitle:
 
 	local nameLabel = Instance.new("TextLabel")
 	nameLabel.Name = "NameLabel"
-	nameLabel.Size = UDim2.new(1, 0, 0, 24)
+	nameLabel.Size = UDim2.new(1, 0, 0, 40)
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Text = title
 	nameLabel.TextColor3 = WHITE
@@ -186,8 +190,8 @@ local function addNameTag(model: Model, body: BasePart, title: string, subtitle:
 
 	local subLabel = Instance.new("TextLabel")
 	subLabel.Name = "RateLabel"
-	subLabel.Position = UDim2.new(0, 0, 0, 24)
-	subLabel.Size = UDim2.new(1, 0, 0, 22)
+	subLabel.Position = UDim2.new(0, 0, 0, 40)
+	subLabel.Size = UDim2.new(1, 0, 0, 20)
 	subLabel.BackgroundTransparency = 1
 	subLabel.Text = subtitle
 	subLabel.TextColor3 = subtitleColor
@@ -365,6 +369,41 @@ function BrainrotFactory.buildCleaningRobot(): Model
 	light.Parent = model
 
 	addNameTag(model, body, "MOP-BOT", "Cleaning the deck...", Color3.fromRGB(150, 220, 150))
+	model:SetAttribute("IsRobot", true)
+	return model
+end
+
+-- Builds the delivery drone that hovers between the hub, the garden and the
+-- airlock, ferrying supply crates. Server-patrolled like MOP-BOT; its
+-- thrusters glow so it reads at a glance in the bright deck.
+function BrainrotFactory.buildDeliveryDrone(): Model
+	local model = Instance.new("Model")
+	model.Name = "DELIVERY DRONE"
+
+	local body = makePart("Body", "Block", Vector3.new(2.6, 1.0, 1.8), Color3.fromRGB(230, 120, 60), Vector3.new(0, 0, 0))
+	body.Parent = model
+	model.PrimaryPart = body
+
+	local crate = makePart("Crate", "Block", Vector3.new(1.6, 1.2, 1.4), Color3.fromRGB(200, 170, 110), Vector3.new(0, -1.1, 0))
+	crate.Parent = model
+	local eye = makePart("Eye", "Ball", Vector3.new(0.7, 0.7, 0.4), Color3.fromRGB(120, 220, 255), Vector3.new(0, 0.1, 0.95))
+	eye.Material = Enum.Material.Neon
+	eye.Parent = model
+	for _, side in { -1, 1 } do
+		local rotor = makePart("Rotor", "Cylinder", Vector3.new(0.12, 1.6, 1.6), Color3.fromRGB(80, 90, 110), Vector3.new(side * 1.9, 0.6, 0))
+		rotor.CFrame = CFrame.new(rotor.Position) * CFrame.Angles(0, 0, math.rad(90))
+		rotor.CanCollide = false
+		rotor.Parent = model
+		local thruster = makePart("Thruster", "Ball", Vector3.new(0.5, 0.5, 0.5), Color3.fromRGB(120, 200, 255), Vector3.new(side * 1.2, -0.6, -0.8))
+		thruster.Material = Enum.Material.Neon
+		thruster.CanCollide = false
+		thruster.Parent = model
+	end
+	local beacon = makePart("Beacon", "Ball", Vector3.new(0.35, 0.35, 0.35), Color3.fromRGB(255, 90, 90), Vector3.new(0, 0.7, 0))
+	beacon.Material = Enum.Material.Neon
+	beacon.Parent = model
+
+	addNameTag(model, body, "DELIVERY DRONE", "Supplies for the modules!", Color3.fromRGB(255, 200, 140))
 	model:SetAttribute("IsRobot", true)
 	return model
 end

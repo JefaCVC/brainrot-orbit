@@ -1,11 +1,12 @@
 --!strict
 -- PanelsController
 -- The three pop-up panels of BRAINROT ORBIT: Upgrades (the four named,
--- levelled tracks with prices), the Brainrot Index (all 19 species in a
--- grid, undiscovered ones as ??? silhouettes) and the Rebirth confirmation
--- dialog. Panels open over the HUD, pause nothing, and close with their
--- X button, the same button that opened them, or the tour's openPanels
--- command (which opens Index + Upgrades together for the dossier shot).
+-- levelled tracks with prices), the Brainrot Index (all 30 species in a
+-- scrollable grid, undiscovered ones as ??? silhouettes) and the Rebirth
+-- confirmation dialog. Panels open over the HUD, pause nothing, and close
+-- with their X button, the same button that opened them, or the tour's
+-- openPanels command (which opens Index + Upgrades together for the
+-- dossier shot).
 
 -- Engine types used in annotations below (the values come from Roblox at runtime).
 type ScreenGui = any
@@ -52,11 +53,13 @@ local function buildUpgradesPanel(gui: ScreenGui)
 		local trackData = BrainrotData.UPGRADES[track]
 		local y = 48 + (i - 1) * 80
 		local row = UiKit.makeFrame(panel, `{track}Row`, UDim2.new(0, 12, 0, y), UDim2.new(1, -24, 0, 72), Color3.fromRGB(26, 38, 60), 0.1)
-		UiKit.makeLabel(row, "Name", UDim2.new(0, 10, 0, 4), UDim2.new(0, 260, 0, 26), trackData.displayName, 18, UiKit.TEXT, true).TextXAlignment =
+		UiKit.makeLabel(row, "Name", UDim2.new(0, 10, 0, 4), UDim2.new(0, 220, 0, 26), trackData.displayName, 18, UiKit.TEXT, true).TextXAlignment =
 			Enum.TextXAlignment.Left
-		local blurb = UiKit.makeLabel(row, "Blurb", UDim2.new(0, 10, 0, 30), UDim2.new(0, 260, 0, 36), trackData.blurb, 13, UiKit.MUTED, false)
+		local blurb = UiKit.makeLabel(row, "Blurb", UDim2.new(0, 10, 0, 30), UDim2.new(0, 220, 0, 36), trackData.blurb, 13, UiKit.MUTED, false)
 		blurb.TextXAlignment = Enum.TextXAlignment.Left
-		local levelLabel = UiKit.makeLabel(row, "Level", UDim2.new(0, 280, 0, 4), UDim2.new(0, 110, 0, 26), "Lv 0", 15, UiKit.ACCENT, true)
+		-- The level label is 150 px wide and fitted down to 11 pt, so even
+		-- the longest level name ("Lv 2 — Triple Bubble") fits on one line.
+		local levelLabel = UiKit.makeLabel(row, "Level", UDim2.new(0, 240, 0, 4), UDim2.new(0, 150, 0, 26), "Lv 0", 15, UiKit.ACCENT, true)
 		levelLabel.Name = "Level"
 		local buyButton = UiKit.makeButton(row, "Buy", UDim2.new(1, -120, 0, 14), UDim2.new(0, 108, 0, 44), "$500", 16, Color3.fromRGB(40, 130, 70))
 		buyButton.Name = "Buy"
@@ -86,6 +89,7 @@ local function refreshUpgradesPanel()
 			if levelLabel then
 				local levelName = trackData.levels[level + 1].name
 				levelLabel.Text = `Lv {level} — {levelName}`
+				UiKit.fitText(levelLabel, 15, 11)
 			end
 			if buyButton then
 				if level >= #trackData.levels - 1 then
@@ -108,11 +112,16 @@ local function buildIndexPanel(gui: ScreenGui)
 	closeButton(panel, function()
 		PanelsController.hideIndex()
 	end)
-	local grid = UiKit.makeFrame(panel, "Grid", UDim2.new(0, 12, 0, 46), UDim2.new(1, -24, 0, 322), UiKit.PANEL_BG, 1)
+	-- The grid scrolls: 30 species in 5 columns need 6 rows, which is
+	-- taller than the panel. The canvas is sized from the roster so a
+	-- future species never overflows the panel again.
+	local grid = UiKit.makeScrollingFrame(panel, "Grid", UDim2.new(0, 12, 0, 46), UDim2.new(1, -24, 0, 322), UiKit.PANEL_BG, 1)
 	grid.BackgroundTransparency = 1
 	local columns = 5
 	local cellWidth = 94
 	local cellHeight = 76
+	local rows = math.ceil(#BrainrotData.SPECIES / columns)
+	grid.CanvasSize = UDim2.new(0, 0, 0, rows * (cellHeight + 4))
 	for i, species in BrainrotData.SPECIES do
 		local col = (i - 1) % columns
 		local rowIndex = math.floor((i - 1) / columns)
@@ -184,7 +193,7 @@ local function refreshIndexPanel()
 	end
 	local title = indexPanel:FindFirstChild("Title") :: TextLabel?
 	if title then
-		title.Text = `BRAINROT INDEX  {discoveredCount}/19`
+		title.Text = `BRAINROT INDEX  {discoveredCount}/{#BrainrotData.SPECIES}`
 	end
 end
 

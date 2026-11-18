@@ -50,6 +50,14 @@ local function broadcastBanner(kind: string, text: string, seconds: number)
 	end
 end
 
+-- A full-screen orange flash on every client when the storm hits.
+local function broadcastStormFlash()
+	local remote = Remotes.get("FxEvent") :: RemoteEvent?
+	if remote then
+		remote:FireAllClients({ kind = "stormFlash" })
+	end
+end
+
 function StormService.getStormState(): { phase: string, secondsLeft: number, nextStormIn: number }
 	local now = os.clock()
 	if stormPhase == "calm" then
@@ -178,6 +186,7 @@ local function stormLoop()
 		WildSpawner.irradiateExposed()
 		knockBackExposedPlayers()
 		broadcastBanner("storm-active", "SOLAR STORM! STAY IN YOUR DOME!", config.stormDurationSeconds)
+		broadcastStormFlash()
 		task.wait(config.stormDurationSeconds)
 
 		-- Over: the sky clears; domes fall again unless a module is locked

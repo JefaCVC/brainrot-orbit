@@ -37,6 +37,7 @@ export type PlayerData = {
 	missionCaught: number,
 	missionDocked: number,
 	missionEarned: number,
+	missionLocked: number,
 	totalEarned: number,
 	docked: { SavedBrainrot },
 }
@@ -90,6 +91,7 @@ local function defaultData(): PlayerData
 		missionCaught = 0,
 		missionDocked = 0,
 		missionEarned = 0,
+		missionLocked = 0,
 		totalEarned = 0,
 		docked = {},
 	}
@@ -120,7 +122,14 @@ local function reconcile(stored: { [string]: any }): PlayerData
 				end
 			end
 			data.docked = docked
-		elseif key == "credits" or key == "rebirths" or key == "missionsCompleted" or key == "missionCaught" or key == "missionDocked" or key == "missionEarned" or key == "totalEarned" then
+		elseif key == "credits"
+			or key == "rebirths"
+			or key == "missionsCompleted"
+			or key == "missionCaught"
+			or key == "missionDocked"
+			or key == "missionEarned"
+			or key == "missionLocked"
+			or key == "totalEarned" then
 			if typeof(value) == "number" and value == value and math.abs(value) ~= math.huge then
 				(data :: any)[key] = value
 			end

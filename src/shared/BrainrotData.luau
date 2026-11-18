@@ -1,6 +1,6 @@
 --!strict
 -- BrainrotData
--- Shared game data for BRAINROT ORBIT: the 19 original brainrot species, the
+-- Shared game data for BRAINROT ORBIT: the 30 original brainrot species, the
 -- rarity ladder, mutations, upgrade tracks, the mission chain and every tuned
 -- constant. Server and client both require this module; it holds no mutable
 -- state and no secrets, so it is safe to replicate.
@@ -43,7 +43,7 @@ export type Mission = {
 	text: string,
 	goal: number,
 	reward: number, -- credits paid when the mission completes
-	stat: string, -- "caught" | "docked" | "earned"
+	stat: string, -- "caught" | "docked" | "earned" | "locked"
 }
 
 local BrainrotData = {}
@@ -73,35 +73,49 @@ BrainrotData.MUTATION_COLORS = {
 	Diamond = Color3.fromRGB(120, 220, 255),
 	Irradiated = Color3.fromRGB(120, 255, 90),
 	Cosmic = Color3.fromRGB(255, 110, 255),
-} :: { [MutationName]: Color3 }
+} :: { [MutationName]: number }
 
--- The full roster: 19 original alien brainrots. Rates are credits per second.
+-- The full roster: 30 original alien brainrots. Rates are credits per second.
+-- Round 2 added ten species (Pixel Puff, Luna Lolly, Cosmo Cookie, Quantum
+-- Quiche, Gravity Grape, Eclipse Eel, Asteroid Axolotl, Warp Whale, Galaxy
+-- Gator, Dark Matter Donut); every rate slots between its neighbours so the
+-- earn curve is unchanged in shape, just denser.
 BrainrotData.SPECIES = {
 	-- Common
 	{ name = "Bloop Blorp", rarity = "Common", rate = 8, weight = 100, bodyColor = Color3.fromRGB(120, 200, 255), accentColor = Color3.fromRGB(40, 110, 200), bodyShape = "Ball", accessory = "Antenna", scale = 0.9 },
+	{ name = "Pixel Puff", rarity = "Common", rate = 10, weight = 90, bodyColor = Color3.fromRGB(110, 230, 220), accentColor = Color3.fromRGB(30, 140, 130), bodyShape = "Block", accessory = "Antenna", scale = 0.85 },
 	{ name = "Zorp Zorp", rarity = "Common", rate = 12, weight = 80, bodyColor = Color3.fromRGB(150, 255, 150), accentColor = Color3.fromRGB(40, 160, 60), bodyShape = "Ball", accessory = "Ears", scale = 0.9 },
 	{ name = "Gloob Glorp", rarity = "Common", rate = 15, weight = 70, bodyColor = Color3.fromRGB(200, 160, 255), accentColor = Color3.fromRGB(120, 70, 200), bodyShape = "Ball", accessory = "Spots", scale = 1.0 },
+	{ name = "Luna Lolly", rarity = "Common", rate = 18, weight = 65, bodyColor = Color3.fromRGB(255, 180, 210), accentColor = Color3.fromRGB(255, 245, 220), bodyShape = "Ball", accessory = "Ring", scale = 0.9 },
 	{ name = "Comet Croissant", rarity = "Common", rate = 20, weight = 60, bodyColor = Color3.fromRGB(255, 200, 110), accentColor = Color3.fromRGB(200, 130, 40), bodyShape = "Block", accessory = "Tail", scale = 1.0 },
+	{ name = "Cosmo Cookie", rarity = "Common", rate = 22, weight = 55, bodyColor = Color3.fromRGB(210, 170, 120), accentColor = Color3.fromRGB(120, 80, 200), bodyShape = "Cylinder", accessory = "Spots", scale = 0.95 },
 	{ name = "Plasma Pingu", rarity = "Common", rate = 25, weight = 50, bodyColor = Color3.fromRGB(60, 70, 90), accentColor = Color3.fromRGB(240, 240, 250), bodyShape = "Cylinder", accessory = "Beak", scale = 1.0 },
 	-- Uncommon
 	{ name = "Nebula Noodle", rarity = "Uncommon", rate = 60, weight = 30, bodyColor = Color3.fromRGB(255, 150, 200), accentColor = Color3.fromRGB(255, 220, 240), bodyShape = "Cylinder", accessory = "Tail", scale = 1.0 },
+	{ name = "Quantum Quiche", rarity = "Uncommon", rate = 75, weight = 27, bodyColor = Color3.fromRGB(170, 140, 255), accentColor = Color3.fromRGB(255, 230, 120), bodyShape = "Cylinder", accessory = "Ring", scale = 1.0 },
 	{ name = "Astro Mochi", rarity = "Uncommon", rate = 90, weight = 24, bodyColor = Color3.fromRGB(255, 240, 220), accentColor = Color3.fromRGB(255, 170, 200), bodyShape = "Ball", accessory = "Ears", scale = 0.95 },
 	{ name = "Void Vito", rarity = "Uncommon", rate = 130, weight = 18, bodyColor = Color3.fromRGB(70, 60, 120), accentColor = Color3.fromRGB(160, 130, 255), bodyShape = "Ball", accessory = "Ring", scale = 1.05 },
+	{ name = "Gravity Grape", rarity = "Uncommon", rate = 150, weight = 16, bodyColor = Color3.fromRGB(140, 80, 200), accentColor = Color3.fromRGB(200, 255, 150), bodyShape = "Ball", accessory = "Tail", scale = 1.0 },
 	{ name = "Meteor Mochi", rarity = "Uncommon", rate = 180, weight = 14, bodyColor = Color3.fromRGB(255, 120, 80), accentColor = Color3.fromRGB(255, 220, 120), bodyShape = "Ball", accessory = "Spots", scale = 1.0 },
 	-- Rare
 	{ name = "Galactic Gumbo", rarity = "Rare", rate = 400, weight = 8, bodyColor = Color3.fromRGB(90, 200, 140), accentColor = Color3.fromRGB(220, 255, 200), bodyShape = "Block", accessory = "Horns", scale = 1.1 },
 	{ name = "Star S'more", rarity = "Rare", rate = 600, weight = 6, bodyColor = Color3.fromRGB(150, 100, 60), accentColor = Color3.fromRGB(255, 250, 230), bodyShape = "Block", accessory = "None", scale = 1.1 },
+	{ name = "Eclipse Eel", rarity = "Rare", rate = 750, weight = 5, bodyColor = Color3.fromRGB(50, 70, 140), accentColor = Color3.fromRGB(255, 200, 90), bodyShape = "Cylinder", accessory = "Tail", scale = 1.1 },
 	{ name = "Cosmo Corgi", rarity = "Rare", rate = 900, weight = 4, bodyColor = Color3.fromRGB(230, 160, 80), accentColor = Color3.fromRGB(255, 240, 220), bodyShape = "Block", accessory = "Ears", scale = 1.1 },
 	{ name = "Lunar Llama", rarity = "Rare", rate = 1200, weight = 3, bodyColor = Color3.fromRGB(220, 220, 235), accentColor = Color3.fromRGB(150, 200, 255), bodyShape = "Cylinder", accessory = "Ears", scale = 1.2 },
+	{ name = "Asteroid Axolotl", rarity = "Rare", rate = 1500, weight = 2.5, bodyColor = Color3.fromRGB(160, 160, 175), accentColor = Color3.fromRGB(255, 170, 200), bodyShape = "Ball", accessory = "Ears", scale = 1.15 },
 	-- Epic
 	{ name = "Solar Squirrel", rarity = "Epic", rate = 2000, weight = 2, bodyColor = Color3.fromRGB(255, 160, 40), accentColor = Color3.fromRGB(255, 230, 150), bodyShape = "Ball", accessory = "Tail", scale = 1.15 },
 	{ name = "Orbit Ostrich", rarity = "Epic", rate = 3000, weight = 1.5, bodyColor = Color3.fromRGB(200, 220, 255), accentColor = Color3.fromRGB(255, 140, 180), bodyShape = "Cylinder", accessory = "Wings", scale = 1.3 },
+	{ name = "Warp Whale", rarity = "Epic", rate = 3600, weight = 1.2, bodyColor = Color3.fromRGB(60, 110, 200), accentColor = Color3.fromRGB(140, 220, 255), bodyShape = "Cylinder", accessory = "Wings", scale = 1.35 },
 	{ name = "Quasar Quokka", rarity = "Epic", rate = 4500, weight = 1, bodyColor = Color3.fromRGB(180, 140, 90), accentColor = Color3.fromRGB(255, 220, 170), bodyShape = "Ball", accessory = "Ears", scale = 1.2 },
 	-- Legendary
 	{ name = "Pulsar Panda", rarity = "Legendary", rate = 7000, weight = 0.5, bodyColor = Color3.fromRGB(240, 240, 245), accentColor = Color3.fromRGB(40, 40, 50), bodyShape = "Ball", accessory = "Ears", scale = 1.35 },
+	{ name = "Galaxy Gator", rarity = "Legendary", rate = 8500, weight = 0.4, bodyColor = Color3.fromRGB(80, 190, 110), accentColor = Color3.fromRGB(255, 215, 90), bodyShape = "Block", accessory = "Horns", scale = 1.4 },
 	{ name = "Nova Narwhal", rarity = "Legendary", rate = 10000, weight = 0.3, bodyColor = Color3.fromRGB(140, 200, 255), accentColor = Color3.fromRGB(255, 255, 255), bodyShape = "Cylinder", accessory = "Horns", scale = 1.4 },
 	-- Secret
 	{ name = "Supernova Sloth", rarity = "Secret", rate = 25000, weight = 0.1, bodyColor = Color3.fromRGB(255, 90, 120), accentColor = Color3.fromRGB(255, 220, 80), bodyShape = "Ball", accessory = "Ring", scale = 1.5 },
+	{ name = "Dark Matter Donut", rarity = "Secret", rate = 35000, weight = 0.07, bodyColor = Color3.fromRGB(45, 40, 70), accentColor = Color3.fromRGB(255, 110, 200), bodyShape = "Ball", accessory = "Ring", scale = 1.5 },
 	{ name = "Big Bang Burrito", rarity = "Secret", rate = 50000, weight = 0.05, bodyColor = Color3.fromRGB(220, 180, 100), accentColor = Color3.fromRGB(120, 200, 90), bodyShape = "Cylinder", accessory = "Spots", scale = 1.6 },
 } :: { Species }
 
@@ -167,11 +181,13 @@ BrainrotData.UPGRADES = {
 	},
 } :: { [string]: UpgradeTrack }
 
--- The 3-mission chain. The HUD always shows the next goal.
+-- The 4-mission chain. The HUD always shows the next goal. Mission 4 teaches
+-- the lock verb, which is the player's only real defence against thieves.
 BrainrotData.MISSIONS = {
 	{ id = "catch1", text = "Catch a brainrot (E)", goal = 1, reward = 100, stat = "caught" },
 	{ id = "dock3", text = "Dock 3 brainrots in your pods", goal = 3, reward = 500, stat = "docked" },
 	{ id = "earn2000", text = "Earn 2,000 credits total", goal = 2000, reward = 1500, stat = "earned" },
+	{ id = "lock1", text = "Lock your module (L)", goal = 1, reward = 2500, stat = "locked" },
 } :: { Mission }
 
 -- Tuned constants for the whole game.

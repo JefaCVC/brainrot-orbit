@@ -3,8 +3,8 @@
 -- Client bootstrap for BRAINROT ORBIT. Wires the server's remotes to the
 -- controllers (state, banners, toasts, tour commands), builds the title
 -- screen first so the player lands on it, and starts the HUD, the panels,
--- the input bindings, the animator and the effects. The HUD stays hidden
--- until PLAY dismisses the title screen.
+-- the tutorial, the input bindings, the animator and the effects. The HUD
+-- stays hidden until PLAY dismisses the title screen.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,6 +20,7 @@ local InputController = requireModule(script.Parent:WaitForChild("InputControlle
 local PanelsController = requireModule(script.Parent:WaitForChild("PanelsController"))
 local Remotes = requireModule(ReplicatedStorage:WaitForChild("Remotes"))
 local TitleController = requireModule(script.Parent:WaitForChild("TitleController"))
+local TutorialController = requireModule(script.Parent:WaitForChild("TutorialController"))
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -57,6 +58,8 @@ if tourRemote then
 			TitleController.dismiss()
 		elseif command == "openPanels" then
 			PanelsController.openPanelsForTour()
+		elseif command == "hideTutorial" then
+			TutorialController.hide()
 		elseif command == "highlightCatch" then
 			HudController.showToast("Press E to catch the Bloop Blorp!")
 		end
@@ -76,6 +79,7 @@ end
 PanelsController.init()
 HudController.init()
 TitleController.init(playerGui, onTitleDismissed)
+TutorialController.init()
 InputController.init()
 BrainrotAnimator.init()
 BeamEffects.init()

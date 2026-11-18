@@ -23,7 +23,7 @@ solar storm hits. Rebirth into a new station ring for +50% credits forever.
 | **F** | Bonk ZORK the Snatcher with the Plasma Bat (3x drives him off) |
 | **Q** | Drop your cargo |
 
-- **19 original brainrots** across 6 rarities (Common → Secret), from
+- **30 original brainrots** across 6 rarities (Common → Secret), from
   Bloop Blorp ($8/s) to the Big Bang Burrito ($50K/s).
 - **Mutations:** Gold x2, Diamond x3, Irradiated x4 (solar storm only),
   Cosmic x10 — plus an Index with ??? silhouettes for the ones you
@@ -32,8 +32,19 @@ solar storm hits. Rebirth into a new station ring for +50% credits forever.
   Meteor Shower (bonus brainrots on the outer deck).
 - **Upgrades:** Tractor Beam Mk II/III, Cargo Bubble, Shield Extender,
   Module Expansion — four named, levelled tracks.
-- **Missions:** a 3-mission chain with credit rewards, always showing
+- **Missions:** a 4-mission chain with credit rewards, always showing
   the next goal on the HUD.
+- **Tutorial:** a guided first minute — catch, dock, lock — with a 3D
+  beacon pointing at exactly what to do next. Dismissible, never blocks
+  the title screen.
+
+## The living station
+
+Five crew NPCs with idle animations, a cleaning robot and a delivery
+drone on patrol loops, control consoles with blinking lights, supply
+crates by the airlock, a hydroponic garden, and a docked shuttle visible
+through the observation windows. The station is bright; dark space stays
+outside, as a backdrop.
 
 ## Build
 
@@ -50,14 +61,15 @@ holds the scripts, and the server builds the world when it starts.
 
 ## Layout
 
-- `src/shared/` — game data (19 species, rarities, mutations, upgrades,
+- `src/shared/` — game data (30 species, rarities, mutations, upgrades,
   missions), formatting, the whitelisted remotes.
 - `src/server/` — world builder, brainrot factory, session-locked
   DataStore with schema migration, player state, wild spawner, storm
   service, ZORK the Snatcher, the core game service, and the
   finalist-review tour module.
 - `src/client/` — 3D title screen, HUD, upgrades/index/rebirth panels,
-  ContextActionService input, procedural animation, beam effects.
+  guided tutorial with 3D beacon, ContextActionService input, procedural
+  animation, beam effects.
 
 ## Credits
 

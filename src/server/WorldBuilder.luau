@@ -3,9 +3,11 @@
 -- Builds the whole BRAINROT ORBIT station at runtime, from plain parts: a
 -- BRIGHT observation deck (white-blue floors, warm lamps, big windows), eight
 -- player modules with habitat pods and shield domes, a hydroponic garden, an
--- airlock, title pedestals, crew NPCs, a cleaning robot, and the space
--- backdrop (planet, satellites, stars) visible through the windows. Dark
--- space is only ever a backdrop — the play area is always bright.
+-- airlock, title pedestals, five crew NPCs, a cleaning robot, a delivery
+-- drone, control consoles with blinking lights, supply crates, a docked
+-- shuttle, and the space backdrop (planet, satellites, stars) visible
+-- through the windows. Dark space is only ever a backdrop — the play area
+-- is always bright.
 --
 -- Everything is anchored and deterministic: the same layout every server, so
 -- the dossier screenshots and the TOUR.json steps always match the world.
@@ -35,6 +37,9 @@ WorldBuilder.MODULES = {} :: { any }
 WorldBuilder.STORM_EMITTERS = {} :: { ParticleEmitter }
 WorldBuilder.CLEANING_ROBOT = nil :: Model?
 WorldBuilder.ROBOT_WAYPOINTS = {} :: { Vector3 }
+WorldBuilder.DELIVERY_DRONE = nil :: Model?
+WorldBuilder.DRONE_WAYPOINTS = {} :: { Vector3 }
+WorldBuilder.CONSOLE_LIGHTS = {} :: { BasePart }
 
 local MODULE_COUNT = 8
 local MODULE_RADIUS = 95
@@ -91,6 +96,10 @@ local function flatCylinder(name: string, radius: number, thickness: number, col
 	return disc
 end
 
+-- Station sign: a pole, a dark board and a BillboardGui tag. The tag is
+-- 280 px wide with a two-line subtitle area, so every title and subtitle
+-- fits without clipping (the longest title, "HYDROPONIC GARDEN", is ~195 px
+-- at 18 pt bold; the longest subtitle wraps cleanly into its 44 px area).
 local function addSign(parent: Instance, position: Vector3, title: string, subtitle: string, accent: Color3): TextLabel
 	local pole = newPart("SignPole", "Cylinder", Vector3.new(5, 0.4, 0.4), Color3.fromRGB(120, 130, 150), CFrame.new(position + Vector3.new(0, 2.5, 0)), parent)
 	pole.CFrame = CFrame.new(position + Vector3.new(0, 2.5, 0)) * CFrame.Angles(0, 0, math.rad(90))
@@ -106,33 +115,61 @@ local function addSign(parent: Instance, position: Vector3, title: string, subti
 	board.Name = "SignBoard"
 	local tag = Instance.new("BillboardGui")
 	tag.Name = "SignTag"
-	tag.Size = UDim2.new(0, 220, 0, 70)
+	tag.Size = UDim2.new(0, 280, 0, 84)
 	tag.StudsOffset = Vector3.new(0, 5.6, 0)
 	tag.AlwaysOnTop = false
 	tag.Adornee = pole
 	local titleLabel = Instance.new("TextLabel")
 	titleLabel.Name = "Title"
-	titleLabel.Size = UDim2.new(1, 0, 0, 32)
+	titleLabel.Size = UDim2.new(1, 0, 0, 30)
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Text = title
 	titleLabel.TextColor3 = accent
-	titleLabel.TextSize = 20
+	titleLabel.TextSize = 18
 	titleLabel.Font = Enum.Font.GothamBold
 	titleLabel.TextWrapped = true
 	titleLabel.Parent = tag
 	local subLabel = Instance.new("TextLabel")
 	subLabel.Name = "Subtitle"
 	subLabel.Position = UDim2.new(0, 0, 0, 32)
-	subLabel.Size = UDim2.new(1, 0, 0, 26)
+	subLabel.Size = UDim2.new(1, 0, 0, 44)
 	subLabel.BackgroundTransparency = 1
 	subLabel.Text = subtitle
 	subLabel.TextColor3 = Color3.fromRGB(220, 230, 245)
-	subLabel.TextSize = 15
+	subLabel.TextSize = 14
 	subLabel.Font = Enum.Font.Gotham
 	subLabel.TextWrapped = true
 	subLabel.Parent = tag
 	tag.Parent = parent
 	return titleLabel
+end
+
+-- One control console: a base, a tilted neon screen and a light strip that
+-- the blink loop toggles, so the deck feels powered and alive.
+local function buildConsole(folder: Instance, position: Vector3, screenColor: Color3, lightColor: Color3)
+	local facing = CFrame.new(position, Vector3.new(0, 0, 0))
+	newPart("ConsoleBase", "Block", Vector3.new(4.5, 2.2, 2.2), Color3.fromRGB(200, 210, 225), facing * CFrame.new(0, 1.1, 0), folder)
+	local screen = newPart(
+		"ConsoleScreen",
+		"Block",
+		Vector3.new(3.8, 2.2, 0.3),
+		screenColor,
+		facing * CFrame.new(0, 3.2, 0.4) * CFrame.Angles(math.rad(-20), 0, 0),
+		folder,
+		Enum.Material.Neon
+	)
+	screen.CanCollide = false
+	local light = newPart(
+		"ConsoleLight",
+		"Block",
+		Vector3.new(3.8, 0.35, 0.35),
+		lightColor,
+		facing * CFrame.new(0, 2.35, 1.0),
+		folder,
+		Enum.Material.Neon
+	)
+	light.CanCollide = false
+	table.insert(WorldBuilder.CONSOLE_LIGHTS, light)
 end
 
 local function buildHub(folder: Instance)
@@ -202,6 +239,19 @@ local function buildHub(folder: Instance)
 		light.Parent = head
 	end
 
+	-- Four control consoles around the deck, each with a blinking light strip.
+	local consoleColors = {
+		{ Color3.fromRGB(90, 180, 255), Color3.fromRGB(255, 200, 60) },
+		{ Color3.fromRGB(120, 230, 160), Color3.fromRGB(255, 120, 120) },
+		{ Color3.fromRGB(200, 140, 255), Color3.fromRGB(120, 220, 255) },
+		{ Color3.fromRGB(255, 180, 110), Color3.fromRGB(140, 255, 160) },
+	} :: { { Color3 } }
+	for i = 0, 3 do
+		local angle = math.rad(45 + i * 90)
+		local pos = Vector3.new(math.cos(angle) * 40, 0, math.sin(angle) * 40)
+		buildConsole(folder, pos, consoleColors[i + 1][1], consoleColors[i + 1][2])
+	end
+
 	addSign(folder, Vector3.new(0, 0, 24), "OBSERVATION DECK", "Catch brainrots with your tractor beam [E]", Color3.fromRGB(120, 200, 255))
 end
 
@@ -253,7 +303,7 @@ local function buildOuterDeck(folder: Instance)
 		table.insert(WorldBuilder.STORM_EMITTERS, emitter)
 	end
 
-	addSign(folder, Vector3.new(82, 0, 0), "OUTER DECK", "Exposed to space — storms hit here first!", Color3.fromRGB(255, 170, 90))
+	addSign(folder, Vector3.new(82, 0, 0), "OUTER DECK", "Storms hit here first!", Color3.fromRGB(255, 170, 90))
 end
 
 local function buildOneModule(folder: Instance, index: number): any
@@ -392,6 +442,30 @@ local function buildAirlock(folder: Instance)
 	-- The round outer door ZORK sneaks through.
 	local door = newPart("AirlockDoor", "Cylinder", Vector3.new(0.8, 7, 7), Color3.fromRGB(255, 150, 60), CFrame.new(center + Vector3.new(9.2, 3.5, 0)), airlockFolder, Enum.Material.Neon)
 	door.CFrame = CFrame.new(center + Vector3.new(9.2, 3.5, 0)) * CFrame.Angles(0, 0, math.rad(90))
+
+	-- Supply crates stacked by the door — the delivery drone's cargo, and a
+	-- reason for the airlock to exist besides ZORK's raids.
+	local crateSpots = {
+		{ Vector3.new(-6, 1, -6), 2 },
+		{ Vector3.new(-6, 1, 6.5), 3 },
+		{ Vector3.new(5, 1, 6.5), 2 },
+	} :: { { any } }
+	local crateColors = { Color3.fromRGB(200, 170, 110), Color3.fromRGB(150, 180, 210), Color3.fromRGB(180, 150, 120) } :: { Color3 }
+	for i, spot in crateSpots do
+		local base = spot[1] :: Vector3
+		local stack = spot[2] :: number
+		for level = 0, stack - 1 do
+			newPart(
+				"SupplyCrate",
+				"Block",
+				Vector3.new(2.2, 2, 2.2),
+				crateColors[((i + level - 1) % #crateColors) + 1],
+				CFrame.new(center + base + Vector3.new(0, level * 2, 0)),
+				airlockFolder
+			)
+		end
+	end
+
 	addSign(airlockFolder, center + Vector3.new(-4, 0, 10), "AIRLOCK", "ZORK the Snatcher sneaks in here...", Color3.fromRGB(255, 150, 90))
 end
 
@@ -401,7 +475,7 @@ local function buildTitlePedestals(folder: Instance)
 		{ "Bloop Blorp", "None" },
 		{ "Plasma Pingu", "None" },
 		{ "Cosmo Corgi", "Gold" },
-		{ "Solar Squirrel", "None" },
+		{ "Warp Whale", "None" },
 		{ "Pulsar Panda", "Diamond" },
 		{ "Big Bang Burrito", "Cosmic" },
 	} :: { { string } }
@@ -444,17 +518,46 @@ local function buildSpaceBackdrop(folder: Instance)
 		beacon:SetAttribute("IsSatellite", true)
 		satFolder:SetAttribute("IsSatellite", true)
 	end
+
+	-- A docked shuttle, visible through the hub's big windows: the station
+	-- is a place ships come to, not a sealed box.
+	local shuttlePos = Vector3.new(150, 28, -90)
+	local shuttleCf = CFrame.lookAt(shuttlePos, Vector3.new(0, 10, 0)) * CFrame.Angles(0, math.rad(90), 0)
+	local shuttleBody = newPart("ShuttleBody", "Cylinder", Vector3.new(16, 5.5, 5.5), Color3.fromRGB(225, 230, 240), shuttleCf, spaceFolder)
+	shuttleBody.CanCollide = false
+	shuttleBody.CanQuery = false
+	local nose = newPart("ShuttleNose", "Ball", Vector3.new(5, 5, 5), Color3.fromRGB(255, 170, 60), shuttleCf * CFrame.new(9.5, 0, 0), spaceFolder, Enum.Material.Neon)
+	nose.CanCollide = false
+	nose.CanQuery = false
+	local cockpit = newPart("ShuttleCockpit", "Ball", Vector3.new(4, 3, 4), Color3.fromRGB(120, 200, 255), shuttleCf * CFrame.new(4, 2.5, 0), spaceFolder, Enum.Material.Glass, 0.2)
+	cockpit.CanCollide = false
+	cockpit.CanQuery = false
+	for _, side in { -1, 1 } do
+		local wing = newPart("ShuttleWing", "Block", Vector3.new(7, 0.5, 7), Color3.fromRGB(90, 140, 220), shuttleCf * CFrame.new(-1, -0.5, side * 5.5), spaceFolder)
+		wing.CanCollide = false
+		wing.CanQuery = false
+		local engine = newPart("ShuttleEngine", "Cylinder", Vector3.new(1.5, 2, 2), Color3.fromRGB(255, 140, 60), shuttleCf * CFrame.new(-8.5, 0, side * 1.8), spaceFolder, Enum.Material.Neon)
+		engine.CFrame = shuttleCf * CFrame.new(-8.5, 0, side * 1.8)
+		engine.CanCollide = false
+		engine.CanQuery = false
+	end
+	local shuttleBeacon = newPart("ShuttleBeacon", "Ball", Vector3.new(1, 1, 1), Color3.fromRGB(255, 90, 90), shuttleCf * CFrame.new(0, 3.5, 0), spaceFolder, Enum.Material.Neon)
+	shuttleBeacon.CanCollide = false
+	shuttleBeacon.CanQuery = false
 end
 
 local function buildCrewAndRobot(folder: Instance)
 	local crewFolder = newFolder("Crew", folder)
 	local crew = {
-		{ "CMDR. NOVA", "Station Commander", Color3.fromRGB(60, 110, 200), Color3.fromRGB(230, 190, 160), Vector3.new(14, 0, 18) },
-		{ "ENG. PIXEL", "Chief Engineer", Color3.fromRGB(200, 110, 60), Color3.fromRGB(160, 110, 80), Vector3.new(-16, 0, 14) },
-		{ "DR. SPROUT", "Hydroponics Lead", Color3.fromRGB(70, 170, 80), Color3.fromRGB(240, 210, 180), Vector3.new(-42, 0, -28) },
+		{ "CMDR. NOVA", "Station Commander", Color3.fromRGB(60, 110, 200), Color3.fromRGB(230, 190, 160), Vector3.new(14, 0, 18), "Sway" },
+		{ "ENG. PIXEL", "Chief Engineer", Color3.fromRGB(200, 110, 60), Color3.fromRGB(160, 110, 80), Vector3.new(-16, 0, 14), "Sway" },
+		{ "DR. SPROUT", "Hydroponics Lead", Color3.fromRGB(70, 170, 80), Color3.fromRGB(240, 210, 180), Vector3.new(-42, 0, -28), "Sway" },
+		{ "NAV. COMET", "Navigator", Color3.fromRGB(120, 90, 200), Color3.fromRGB(210, 170, 140), Vector3.new(30, 0, -10), "Turn" },
+		{ "CHEF ZEST", "Galley Cook", Color3.fromRGB(220, 160, 60), Color3.fromRGB(180, 130, 100), Vector3.new(-30, 0, 34), "Turn" },
 	} :: { { any } }
 	for _, entry in crew do
 		local npc = BrainrotFactory.buildCrewNpc(entry[1], entry[2], entry[3], entry[4])
+		npc:SetAttribute("Animate", entry[6])
 		npc:PivotTo(CFrame.new(entry[5] :: Vector3, Vector3.new(0, 0, 0)))
 		npc.Parent = crewFolder
 	end
@@ -469,6 +572,19 @@ local function buildCrewAndRobot(folder: Instance)
 		Vector3.new(-30, 0, 25),
 		Vector3.new(25, 0, 30),
 	}
+
+	-- The delivery drone hovers at 8 studs, ferrying supplies between the
+	-- hub, the garden and the airlock crates.
+	local drone = BrainrotFactory.buildDeliveryDrone()
+	drone:PivotTo(CFrame.new(30, 8, -30))
+	drone.Parent = crewFolder
+	WorldBuilder.DELIVERY_DRONE = drone
+	WorldBuilder.DRONE_WAYPOINTS = {
+		Vector3.new(30, 8, -30),
+		Vector3.new(-35, 8, -20),
+		Vector3.new(-20, 8, 35),
+		Vector3.new(60, 8, 10),
+	}
 end
 
 -- Builds the entire station. Called once by Main.server.luau before any
@@ -481,6 +597,9 @@ function WorldBuilder.buildWorld()
 	folder = newFolder("Station", Workspace)
 	WorldBuilder.MODULES = {}
 	WorldBuilder.STORM_EMITTERS = {}
+	WorldBuilder.CONSOLE_LIGHTS = {}
+	WorldBuilder.CLEANING_ROBOT = nil
+	WorldBuilder.DELIVERY_DRONE = nil
 
 	buildHub(folder)
 	buildOuterDeck(folder)
@@ -526,14 +645,20 @@ function WorldBuilder.getRandomOuterDeckPoint(): Vector3
 	return Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
 end
 
--- Writes the owner's name onto a module's entrance sign.
+-- Writes the owner's name onto a module's entrance sign. The name is capped
+-- at 10 characters so "MODULE 8 - <name>..." never exceeds the sign's
+-- 280 px tag (24 chars at 18 pt bold is ~260 px).
 function WorldBuilder.setModuleOwner(moduleIndex: number, ownerName: string?)
 	local module = WorldBuilder.MODULES[moduleIndex]
 	if not module then
 		return
 	end
 	if ownerName and ownerName ~= "" then
-		module.signLabel.Text = `MODULE {moduleIndex} - {ownerName}`
+		local shown = ownerName
+		if #shown > 10 then
+			shown = string.sub(shown, 1, 10) .. "..."
+		end
+		module.signLabel.Text = `MODULE {moduleIndex} - {shown}`
 	else
 		module.signLabel.Text = `MODULE {moduleIndex}`
 	end
