@@ -1,21 +1,66 @@
-# roblox-brainrot-01 starter
+# BRAINROT ORBIT
 
-A working entry for make.fun's "Make the best AI Roblox brainrot game" bounty (roblox-brainrot-01), laid out as your
-repository: a Rojo project whose game is a grey square that moves with the arrow keys. It is a starting point, not a
-winner, and not yet the 3D game the bounty asks for: its square is drawn on the screen, not in Roblox's 3D world.
+[![roblox-brainrot-01](https://make.fun/badge/roblox-brainrot-01.svg)](https://make.fun/c/roblox-brainrot-01)
+[![rank](https://make.fun/badge/roblox-brainrot-01/JefaCVC/brainrot-orbit/rank.svg)](https://make.fun/c/roblox-brainrot-01)
+[![reward](https://make.fun/badge/roblox-brainrot-01/JefaCVC/brainrot-orbit/reward.svg)](https://make.fun/c/roblox-brainrot-01)
 
-- `main.ts` (Node 22, standard library only) hands the game in: it copies `game.rbxl`, `src/`, `screenshots/` and
-  `PLAY.json` to `/output`, leaving out every name that starts with a dot (such as `.gitkeep` or `.DS_Store`, which
-  fail an entry), and writes `/output/dossier.json` with `vendor/makefun-roblox.ts`, the kit's copy, unchanged.
-- `game.rbxl` is the place Rojo builds from `src/` and `default.project.json`; `screenshots/` holds three captures of
-  it; `PLAY.json` names no place yet, so the gate refuses the starter as it stands until it names your published one.
-- One of your screenshots must also be your game's first thumbnail on Roblox: the same picture, uploaded on the
-  Creator Dashboard with your game's icon.
-- `TOUR.json` is an example of the optional tour: for each screenshot, the keys that bring the game to that screen.
+**Catch them. Dock them. Get rich before the storm hits.**
 
-Run it as the grader does, writing `out/` in place of `/output`:
+A 3D brainrot game on a bright space station, built for the
+[make.fun roblox-brainrot-01 bounty](https://make.fun/c/roblox-brainrot-01).
+Wild alien brainrots roam the observation deck — catch them with your tractor
+beam, carry them home in your cargo bubble, and dock them in your module's
+habitat pods to earn credits every second. Lock your module against thieves,
+bonk ZORK the Snatcher when he raids, and dash to your shield dome when the
+solar storm hits. Rebirth into a new station ring for +50% credits forever.
 
-    mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+## How to play
 
-The rules are on the bounty's page (/bounty/roblox-brainrot-01) and in the kit's RULES.txt,
-which gives every command in order (Before you submit, then Enter).
+| Key | Action |
+|-----|--------|
+| **E** | Catch a wild brainrot / dock in a pod / steal from a rival module |
+| **L** | Lock your module (energy shield) |
+| **F** | Bonk ZORK the Snatcher with the Plasma Bat (3x drives him off) |
+| **Q** | Drop your cargo |
+
+- **19 original brainrots** across 6 rarities (Common → Secret), from
+  Bloop Blorp ($8/s) to the Big Bang Burrito ($50K/s).
+- **Mutations:** Gold x2, Diamond x3, Irradiated x4 (solar storm only),
+  Cosmic x10 — plus an Index with ??? silhouettes for the ones you
+  haven't found yet.
+- **Events:** Solar Storm every ~60s, Golden Hour (2x credits),
+  Meteor Shower (bonus brainrots on the outer deck).
+- **Upgrades:** Tractor Beam Mk II/III, Cargo Bubble, Shield Extender,
+  Module Expansion — four named, levelled tracks.
+- **Missions:** a 3-mission chain with credit rewards, always showing
+  the next goal on the HUD.
+
+## Build
+
+Rojo-first, no Studio dependency for the build:
+
+```sh
+rojo build default.project.json --output game.rbxl
+mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+```
+
+The world (station, modules, garden, airlock, crew, planet, satellites)
+is built at runtime by `src/server/WorldBuilder.luau` — the place file
+holds the scripts, and the server builds the world when it starts.
+
+## Layout
+
+- `src/shared/` — game data (19 species, rarities, mutations, upgrades,
+  missions), formatting, the whitelisted remotes.
+- `src/server/` — world builder, brainrot factory, session-locked
+  DataStore with schema migration, player state, wild spawner, storm
+  service, ZORK the Snatcher, the core game service, and the
+  finalist-review tour module.
+- `src/client/` — 3D title screen, HUD, upgrades/index/rebirth panels,
+  ContextActionService input, procedural animation, beam effects.
+
+## Credits
+
+Built by an AI agent (Plenger) for Krstan's make.fun entry, as
+@jefaprayoga-stack. All brainrot names, the station, and the game are
+original — no assets, no copied code. License: MIT (see `LICENSE`).
