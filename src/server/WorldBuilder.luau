@@ -80,8 +80,11 @@ local rng = Random.new()
 -- time-of-day sky — a daytime ClockTime would turn the space outside the
 -- windows bright blue and hide every star. StormService snapshots these
 -- values at storm start and restores them, so this stays compatible.
+-- Round 6: Ambient raised 105 -> 150 (Krstan's round 5 playtest: the
+-- interior read black). The storm snapshot takes whatever Ambient is at
+-- storm start, so the brighter base restores exactly after every storm.
 local function configureLighting()
-	Lighting.Ambient = Color3.fromRGB(105, 105, 115)
+	Lighting.Ambient = Color3.fromRGB(150, 150, 165)
 	Lighting.OutdoorAmbient = Color3.fromRGB(25, 30, 55)
 	Lighting.Brightness = 3
 	Lighting.ClockTime = 0
@@ -337,16 +340,17 @@ local function buildConsole(folder: Instance, position: Vector3, screenColor: Co
 end
 
 local function buildHub(folder: Instance)
-	-- One big dark grey metal floor for the whole station, hub + outer
-	-- deck. The pale blue-white floor is gone: grey metal is the base and
-	-- the color comes from the lanes, the emblem and the lights.
-	local floor = flatCylinder("StationFloor", 115, 2, Color3.fromRGB(100, 105, 115), -1, folder)
+	-- One big grey metal floor for the whole station, hub + outer deck.
+	-- Round 6: lightened from near-black (100) so the deck reads as metal
+	-- under the night sky instead of a black void; the color still comes
+	-- from the lanes, the emblem and the lights.
+	local floor = flatCylinder("StationFloor", 115, 2, Color3.fromRGB(140, 145, 155), -1, folder)
 	floor.Material = Enum.Material.SmoothPlastic
 	-- Concentric deck discs in tonal greys, so the floor still reads as
 	-- panelled metal instead of one flat slab.
-	flatCylinder("DeckRing1", 68, 0.25, Color3.fromRGB(115, 120, 130), 0.1, folder)
-	flatCylinder("DeckRing2", 50, 0.25, Color3.fromRGB(90, 95, 105), 0.18, folder)
-	flatCylinder("DeckRing3", 30, 0.25, Color3.fromRGB(125, 130, 140), 0.26, folder)
+	flatCylinder("DeckRing1", 68, 0.25, Color3.fromRGB(150, 155, 165), 0.1, folder)
+	flatCylinder("DeckRing2", 50, 0.25, Color3.fromRGB(130, 135, 145), 0.18, folder)
+	flatCylinder("DeckRing3", 30, 0.25, Color3.fromRGB(160, 165, 175), 0.26, folder)
 	local emblem = flatCylinder("CenterEmblem", 7, 0.3, Color3.fromRGB(255, 170, 60), 0.34, folder)
 	emblem.Material = Enum.Material.Neon
 
@@ -369,9 +373,9 @@ local function buildHub(folder: Instance)
 
 	-- Dark panel-seam rings and a glowing amber base strip at the wall
 	-- foot, so the metal deck reads as bolted plates, not a plain disc.
-	flatRingSegments(folder, "PanelSeam", 40, 0.36, 24, 0.15, 0.8, Color3.fromRGB(55, 60, 70))
-	flatRingSegments(folder, "PanelSeam", 60, 0.28, 24, 0.15, 0.8, Color3.fromRGB(55, 60, 70))
-	flatRingSegments(folder, "PanelSeam", 85, 0.1, 24, 0.15, 0.8, Color3.fromRGB(55, 60, 70))
+	flatRingSegments(folder, "PanelSeam", 40, 0.36, 24, 0.15, 0.8, Color3.fromRGB(75, 80, 90))
+	flatRingSegments(folder, "PanelSeam", 60, 0.28, 24, 0.15, 0.8, Color3.fromRGB(75, 80, 90))
+	flatRingSegments(folder, "PanelSeam", 85, 0.1, 24, 0.15, 0.8, Color3.fromRGB(75, 80, 90))
 	flatRingSegments(folder, "BaseStrip", 73.8, 0.25, 32, 0.4, 0.8, Color3.fromRGB(255, 170, 60), Enum.Material.Neon)
 
 	-- Floor grating: two patches of long dark slats between the guide
@@ -391,7 +395,7 @@ local function buildHub(folder: Instance)
 				"GratingSlat",
 				"Block",
 				Vector3.new(12, 0.15, 0.8),
-				Color3.fromRGB(55, 60, 70),
+				Color3.fromRGB(75, 80, 90),
 				CFrame.new(center + across * ((j - 2.5) * 1.6)) * CFrame.Angles(0, yaw, 0),
 				folder
 			)
@@ -497,7 +501,7 @@ local function buildHub(folder: Instance)
 			local panelPos = Vector3.new(math.cos(angle) * 75, 5, math.sin(angle) * 75)
 			local panelCf = CFrame.new(panelPos, Vector3.new(0, 5, 0))
 			if i % 2 == 0 then
-				newPart("WallPanel", "Block", Vector3.new(19.5, 10, 1.5), Color3.fromRGB(150, 155, 165), panelCf, folder)
+				newPart("WallPanel", "Block", Vector3.new(19.5, 10, 1.5), Color3.fromRGB(175, 180, 190), panelCf, folder)
 				-- Neon accent strip along the top edge of every solid panel.
 				local strip = newPart(
 					"WallStrip",
@@ -522,6 +526,13 @@ local function buildHub(folder: Instance)
 						Enum.Material.Neon
 					)
 					screen.CanCollide = false
+					-- Round 6 fill light: the screen is a real light
+					-- source now, washing its color onto the deck below.
+					local screenLight = Instance.new("PointLight")
+					screenLight.Color = screenColor
+					screenLight.Range = 20
+					screenLight.Brightness = 1
+					screenLight.Parent = screen
 				end
 				-- Paired vertical conduit pipes on two panels.
 				if i == 4 or i == 16 then
@@ -594,6 +605,7 @@ local function buildHub(folder: Instance)
 	end
 
 	-- Warm lamp posts keep the deck bright even though space outside is dark.
+	-- Round 6: brighter and wider (the round 5 playtest read black).
 	for i = 0, 7 do
 		local angle = (i / 8) * math.pi * 2 + math.pi / 8
 		local pos = Vector3.new(math.cos(angle) * 55, 0, math.sin(angle) * 55)
@@ -602,8 +614,8 @@ local function buildHub(folder: Instance)
 		local head = newPart("LampHead", "Block", Vector3.new(2.4, 0.8, 2.4), Color3.fromRGB(255, 230, 170), CFrame.new(pos + Vector3.new(0, 9.2, 0)), folder, Enum.Material.Neon)
 		local light = Instance.new("PointLight")
 		light.Color = Color3.fromRGB(255, 225, 170)
-		light.Range = 34
-		light.Brightness = 1.6
+		light.Range = 40
+		light.Brightness = 2.2
 		light.Parent = head
 	end
 
@@ -626,14 +638,16 @@ local function buildHub(folder: Instance)
 	addSign(folder, Vector3.new(0, 0, 24), "OBSERVATION DECK", "Catch brainrots with your tractor beam [E]", Color3.fromRGB(120, 200, 255))
 end
 
--- The ceiling that turns the open disc into a station interior: a dark
+-- The ceiling that turns the open disc into a station interior: a grey
 -- metal disc at y=14 with a rim ring closing the gap above the 10-tall
 -- walls, neon accent rings, radial beams, orange ceiling pipes, a glass
 -- skylight with a neon ring, hanging light fixtures and red accent lights
--- on the rim. The drone (y=8) and the lamp heads (y=9.2) clear all of it.
+-- on the rim. Round 6 lightened the ceiling metal from near-black so the
+-- interior never reads black overhead. The drone (y=8) and the lamp heads
+-- (y=9.2) clear all of it.
 local function buildCeiling(folder: Instance)
 	local ceilingFolder = newFolder("Ceiling", folder)
-	local darkMetal = Color3.fromRGB(60, 65, 75)
+	local darkMetal = Color3.fromRGB(95, 100, 112)
 
 	-- The disc itself.
 	flatCylinder("CeilingDisc", 76, 0.6, darkMetal, 14, ceilingFolder)
@@ -693,7 +707,7 @@ local function buildCeiling(folder: Instance)
 	local skyLight = Instance.new("PointLight")
 	skyLight.Color = Color3.fromRGB(255, 240, 210)
 	skyLight.Range = 45
-	skyLight.Brightness = 1.5
+	skyLight.Brightness = 2
 	skyLight.Parent = skylight
 
 	-- Twelve radial beams from the skylight edge out to the rim.
@@ -720,7 +734,8 @@ local function buildCeiling(folder: Instance)
 	end
 
 	-- Six hanging light fixtures over the hub, alternating warm white and
-	-- cyan, four of them carrying a real PointLight.
+	-- cyan, all six carrying a real PointLight (round 6: two used to be
+	-- dark, and all six are brighter and wider now).
 	local fixtureColors = {
 		Color3.fromRGB(255, 240, 210),
 		Color3.fromRGB(140, 220, 255),
@@ -747,13 +762,11 @@ local function buildCeiling(folder: Instance)
 			ceilingFolder
 		)
 		rod.CFrame = CFrame.new(Vector3.new(pos.X, 13.2, pos.Z)) * CFrame.Angles(0, 0, math.rad(90))
-		if i ~= 2 and i ~= 5 then
-			local light = Instance.new("PointLight")
-			light.Color = Color3.fromRGB(255, 225, 170)
-			light.Range = 30
-			light.Brightness = 1.2
-			light.Parent = fixture
-		end
+		local light = Instance.new("PointLight")
+		light.Color = Color3.fromRGB(255, 225, 170)
+		light.Range = 34
+		light.Brightness = 1.8
+		light.Parent = fixture
 	end
 
 	-- Red circular accent lights in pairs on the rim wall.
@@ -1283,7 +1296,10 @@ local function buildTitlePedestals(folder: Instance)
 		plaqueLabel.TextScaled = true
 		plaqueLabel.Parent = plaqueGui
 		plaqueGui.Parent = plaque
-		local model = BrainrotFactory.buildBrainrotModel(entry[1], entry[2], `pedestal-{i}`)
+		-- No floating name tag on pedestal models (round 6): six 150 px
+		-- tags 5 studs apart stacked on top of each other, and the
+		-- plaque above already names the rarity.
+		local model = BrainrotFactory.buildBrainrotModel(entry[1], entry[2], `pedestal-{i}`, true)
 		model:SetAttribute("Animate", "Spin")
 		model:PivotTo(CFrame.new(pedestalPos + Vector3.new(0, 1 + height + 0.2 + BrainrotFactory.getRestHeight(entry[1]), 0)))
 		model.Parent = pedestalFolder

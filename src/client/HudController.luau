@@ -9,9 +9,9 @@
 -- that announces each area, and a mute button for sound effects.
 --
 -- Layout rules: nothing sits in the TOP-LEFT corner (Roblox's own menu
--- buttons live there), no text ever overflows its box (TextScaled candy
--- titles, fitText/truncate for dynamic labels), and the whole HUD scales
--- with viewport height via UIScale (clamp(viewportY/760, 0.55, 1.4)).
+-- buttons live there), no text ever overflows its box (fixed-size candy
+-- titles fitted by UiKit, fitText/truncate for dynamic labels), and the
+-- whole HUD scales with viewport height via UIScale (clamp(viewportY/760, 0.55, 1.4)).
 
 -- Engine types used in annotations below (the values come from Roblox at runtime).
 type ScreenGui = any
@@ -186,7 +186,9 @@ local function buildHud(playerGui: Instance)
 			UDim2.new(0, 150, 0, 64),
 			action.color,
 			action.title,
-			action.sub
+			action.sub,
+			20,
+			13
 		)
 		if action.name == "LockButton" then
 			lockButton = button
@@ -219,17 +221,25 @@ local function buildHud(playerGui: Instance)
 	promptLabel = UiKit.makeLabel(gui, "Prompt", UDim2.new(0.5, -280, 1, -164), UDim2.new(0, 560, 0, 26), "", 16, UiKit.GOLD, true)
 	promptLabel.Visible = false
 
-	-- Help line: bottom-center.
-	UiKit.makeLabel(
+	-- Help line: below the cash card, left-aligned with it. It used to sit
+	-- bottom-center (y 1,-34), where it overlapped the bottom-right action
+	-- buttons on narrow viewports: at 1024x768 the help band (x 232..792,
+	-- y 734..758) crossed the buttons (x 382..1012, y 692..756). Here it
+	-- never overlaps anything: the cash card ends 8 px above it, the
+	-- toasts live on the right (x >= W-412, this ends at x 572), and the
+	-- carry banner and the action row sit below it. Verified by coordinate
+	-- math at 1024x768 and 1920x1080 (see the round 6 report).
+	local helpLabel = UiKit.makeLabel(
 		gui,
 		"Help",
-		UDim2.new(0.5, -280, 1, -34),
+		UDim2.new(0, 12, 0.5, 100),
 		UDim2.new(0, 560, 0, 24),
 		"E catch / dock / steal    •    L lock module    •    F bonk ZORK    •    Q drop cargo",
 		14,
 		UiKit.WHITE,
 		false
 	)
+	helpLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 	-- Toast stack: right side, below the roster (the roster can grow to
 	-- 8 rows, ending near y=302 — the toasts start at y=320).
@@ -244,7 +254,7 @@ local function buildHud(playerGui: Instance)
 
 	-- Mute button: bottom-left, toggles sound effects (there is no music
 	-- track in this build — no licensed asset id lives in the repo).
-	muteButton = UiKit.button(gui, "MuteButton", UDim2.new(0, 12, 1, -76), UDim2.new(0, 64, 0, 64), UiKit.COLORS.blue, "♪", "SFX")
+	muteButton = UiKit.button(gui, "MuteButton", UDim2.new(0, 12, 1, -76), UDim2.new(0, 64, 0, 64), UiKit.COLORS.blue, "♪", "SFX", 28, 12)
 	muteButton.MouseButton1Click:Connect(function()
 		local muted = BeamEffects.setMuted(not BeamEffects.isMuted())
 		if muteButton then

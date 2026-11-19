@@ -8,9 +8,18 @@
 -- for this game, not a copy.
 --
 -- The "text never overflows its box" rule has one enforcement point here:
--- candy titles are TextScaled, fixed-size dynamic labels go through
--- fitText/truncate, and every label carries an ink glyph outline so it
--- reads on any background.
+-- candy titles take a fixed TextSize and are shrunk by fitText only as far
+-- as needed once their AbsoluteSize is known (round 6: TextScaled inside a
+-- button carrying a UIScale rendered at the ~14 pt default instead of
+-- filling the box), fixed-size dynamic labels go through fitText/truncate,
+-- and every label carries an ink glyph outline so it reads on any background.
+--
+-- ZIndex is GLOBAL inside one ScreenGui (round 6 fix for the round 5
+-- regression where addShadow raised panels to ZIndex 2 while their labels
+-- stayed at 1, burying every panel's contents behind its own background):
+-- every UiKit child sits ABOVE its container via childZIndex, one or two
+-- steps above its GuiObject parent (a ScreenGui parent has no ZIndex, so
+-- the offset itself is the absolute value).
 
 -- Engine types used in annotations below (the values come from Roblox at runtime).
 type Color3 = any
@@ -91,6 +100,18 @@ function UiKit.corner(target: Instance, radius: number)
 	return corner
 end
 
+-- A child's ZIndex, one or two steps above its container. ZIndex is global
+-- inside a ScreenGui, not hierarchical, so a label at ZIndex 1 inside a
+-- panel at ZIndex 2 renders BEHIND the panel's background. A ScreenGui has
+-- no ZIndex property, so a direct child of the gui gets the offset itself
+-- as its absolute ZIndex.
+local function childZIndex(parent: Instance, offset: number): number
+	if parent:IsA("GuiObject") then
+		return parent.ZIndex + offset
+	end
+	return offset
+end
+
 -- Drop shadow: a dark copy behind the target, offset +6px, following the
 -- target's position/size/visibility. Skip for objects inside a layout
 -- (the shadow would be counted as a layout item).
@@ -156,9 +177,12 @@ function UiKit.setPanelColor(panel: Frame, color: Color3)
 	UiKit.shade(panel, color, 0.18, 0.12)
 end
 
--- Cartoon text: TextScaled so it can never overflow its box, ink glyph
--- outline so it reads on any background. font: "title" (LuckiestGuy) or
--- "body" (FredokaOne).
+-- Cartoon text with a FIXED TextSize (round 6): TextScaled inside a button
+-- that carries a UIScale (the bouncy press scale) renders at the ~14 pt
+-- default instead of filling the box, so titles now take an explicit
+-- starting size and fitText shrinks them only as far as needed once
+-- AbsoluteSize is known. Ink glyph outline so it reads on any background.
+-- font: "title" (LuckiestGuy) or "body" (FredokaOne).
 function UiKit.text(
 	parent: Instance,
 	name: string,
@@ -167,7 +191,9 @@ function UiKit.text(
 	text: string,
 	color: Color3,
 	font: string?,
-	strokeThickness: number?
+	strokeThickness: number?,
+	textSize: number?,
+	minTextSize: number?
 ): TextLabel
 	local label = Instance.new("TextLabel")
 	label.Name = name
@@ -177,16 +203,29 @@ function UiKit.text(
 	label.Text = text
 	label.TextColor3 = color
 	label.Font = if font == "title" then Enum.Font.LuckiestGuy else Enum.Font.FredokaOne
-	label.TextScaled = true
+	label.TextScaled = false
+	label.TextSize = textSize or 20
 	label.TextWrapped = false
 	label.TextXAlignment = Enum.TextXAlignment.Center
 	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.ZIndex = childZIndex(parent, 2)
 	label.Parent = parent
 	local stroke = Instance.new("UIStroke")
 	stroke.Thickness = strokeThickness or 2.5
 	stroke.Color = UiKit.INK
 	stroke.LineJoinMode = Enum.LineJoinMode.Round
 	stroke.Parent = label
+	-- Fit once the label has a real size: buttons are built before their
+	-- ScreenGui is parented, so AbsoluteSize is 0 at creation time and
+	-- only becomes valid after the first layout pass.
+	local maxSize = textSize or 20
+	local minSize = minTextSize or 10
+	task.spawn(function()
+		if label.AbsoluteSize.X <= 0 then
+			label:GetPropertyChangedSignal("AbsoluteSize"):Wait()
+		end
+		UiKit.fitText(label, maxSize, minSize, 2)
+	end)
 	return label
 end
 
@@ -232,6 +271,8 @@ end
 -- The visible text lives in child labels ("Title"/"Sub") so callers change
 -- it with setButtonTitle/setButtonSubtitle; the TextButton's own Text
 -- stays "" (its UIStroke is the pill border, not a glyph outline).
+-- titleSize/subSize are the starting TextSizes (fitText shrinks from
+-- there); defaults are 20/13 with a subtitle, 26 without one.
 function UiKit.button(
 	parent: Instance,
 	name: string,
@@ -239,7 +280,9 @@ function UiKit.button(
 	size: UDim2,
 	color: Color3,
 	title: string,
-	subtitle: string?
+	subtitle: string?,
+	titleSize: number?,
+	subSize: number?
 ): TextButton
 	local button = Instance.new("TextButton")
 	button.Name = name
@@ -249,12 +292,24 @@ function UiKit.button(
 	button.BorderSizePixel = 0
 	button.Text = ""
 	button.AutoButtonColor = false
+	-- A button inside a panel must sit ABOVE that panel's background
+	-- (ZIndex is global, not hierarchical): one step above its GuiObject
+	-- parent. A button parented straight to a ScreenGui keeps ZIndex 1
+	-- and addShadow raises it to 2 below.
+	if parent:IsA("GuiObject") then
+		button.ZIndex = parent.ZIndex + 1
+	end
 	button.Parent = parent
 	UiKit.shade(button, color, 0.28, 0.12)
 	UiKit.corner(button, 16)
 	UiKit.outline(button, 4)
+	-- Shadow FIRST: it finalizes the button's ZIndex (2 for a top-level
+	-- button), and the gloss + labels below are placed relative to it.
+	UiKit.addShadow(button)
 	-- Gloss: white strip over the top 30%, inset so it never pokes past
-	-- the rounded corners.
+	-- the rounded corners. One step above the button so it is not buried
+	-- by the button's own background (round 5: the gloss sat at ZIndex 1
+	-- under the ZIndex-2 button and the buttons looked flat).
 	local gloss = Instance.new("Frame")
 	gloss.Name = "Gloss"
 	gloss.Position = UDim2.new(0, 4, 0, 4)
@@ -262,8 +317,13 @@ function UiKit.button(
 	gloss.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	gloss.BackgroundTransparency = 0.72
 	gloss.BorderSizePixel = 0
+	gloss.ZIndex = button.ZIndex + 1
 	gloss.Parent = button
 	UiKit.corner(gloss, 10)
+	local titleMax = titleSize
+	if not titleMax then
+		titleMax = if subtitle then 20 else 26
+	end
 	local titleLabel = UiKit.text(
 		button,
 		"Title",
@@ -272,10 +332,14 @@ function UiKit.button(
 		title,
 		UiKit.WHITE,
 		"title",
-		3
+		3,
+		titleMax,
+		10
 	)
-	titleLabel.ZIndex = 2
+	titleLabel.ZIndex = button.ZIndex + 1
+	button:SetAttribute("TitleMaxSize", titleMax)
 	if subtitle then
+		local subMax = subSize or 13
 		local subLabel = UiKit.text(
 			button,
 			"Sub",
@@ -284,11 +348,13 @@ function UiKit.button(
 			subtitle,
 			Color3.fromRGB(255, 248, 200),
 			"body",
-			2
+			2,
+			subMax,
+			9
 		)
-		subLabel.ZIndex = 2
+		subLabel.ZIndex = button.ZIndex + 1
+		button:SetAttribute("SubMaxSize", subMax)
 	end
-	UiKit.addShadow(button)
 	UiKit.bouncy(button)
 	return button
 end
@@ -298,10 +364,17 @@ function UiKit.setButtonColor(button: TextButton, color: Color3)
 	UiKit.shade(button, color, 0.28, 0.12)
 end
 
+-- Changing a button's text re-fits it from the size the button was built
+-- with, so a longer title ("LOCKED 15s", "$12,500") can never overflow
+-- its box the way TextScaled used to absorb it.
 function UiKit.setButtonTitle(button: TextButton, title: string)
 	local label = button:FindFirstChild("Title")
 	if label then
 		label.Text = title
+		local maxSize = button:GetAttribute("TitleMaxSize")
+		if typeof(maxSize) == "number" then
+			UiKit.fitText(label, maxSize, 10, 2)
+		end
 	end
 end
 
@@ -309,6 +382,10 @@ function UiKit.setButtonSubtitle(button: TextButton, subtitle: string)
 	local label = button:FindFirstChild("Sub")
 	if label then
 		label.Text = subtitle
+		local maxSize = button:GetAttribute("SubMaxSize")
+		if typeof(maxSize) == "number" then
+			UiKit.fitText(label, maxSize, 9, 2)
+		end
 	end
 end
 
@@ -322,6 +399,7 @@ function UiKit.makeFrame(parent: Instance, name: string, position: UDim2, size: 
 	frame.BackgroundColor3 = background
 	frame.BackgroundTransparency = transparency
 	frame.BorderSizePixel = 0
+	frame.ZIndex = childZIndex(parent, 1)
 	frame.Parent = parent
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 8)
@@ -339,6 +417,7 @@ function UiKit.makeHeaderStrip(parent: Frame, color: Color3): Frame
 	strip.BackgroundColor3 = color
 	strip.BackgroundTransparency = 0
 	strip.BorderSizePixel = 0
+	strip.ZIndex = childZIndex(parent, 1)
 	strip.Parent = parent
 	return strip
 end
@@ -358,6 +437,7 @@ function UiKit.makeScrollingFrame(parent: Instance, name: string, position: UDim
 	frame.ScrollingDirection = Enum.ScrollingDirection.Y
 	frame.ElasticBehavior = Enum.ElasticBehavior.Never
 	frame.CanvasSize = UDim2.new(0, 0, 0, 0)
+	frame.ZIndex = childZIndex(parent, 1)
 	frame.Parent = parent
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 8)
@@ -389,6 +469,7 @@ function UiKit.makeLabel(
 	label.TextWrapped = true
 	label.TextXAlignment = Enum.TextXAlignment.Center
 	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.ZIndex = childZIndex(parent, 2)
 	label.Parent = parent
 	local stroke = Instance.new("UIStroke")
 	stroke.Thickness = 2
@@ -398,8 +479,8 @@ function UiKit.makeLabel(
 	return label
 end
 
--- Candy button with the old makeButton signature (no subtitle); the title
--- is TextScaled, so textSize is kept for signature compatibility only.
+-- Candy button with the old makeButton signature (no subtitle); textSize
+-- is the title's starting TextSize now (round 6), fitted down by fitText.
 function UiKit.makeButton(
 	parent: Instance,
 	name: string,
@@ -409,7 +490,7 @@ function UiKit.makeButton(
 	textSize: number,
 	background: Color3
 ): TextButton
-	return UiKit.button(parent, name, position, size, background, text, nil)
+	return UiKit.button(parent, name, position, size, background, text, nil, textSize, nil)
 end
 
 -- Responsive HUD scale: the whole HUD scales with viewport height instead
@@ -428,16 +509,19 @@ function UiKit.truncate(text: string, maxChars: number): string
 end
 
 -- Shrinks a label's TextSize until the measured text fits its width.
--- Call after the label is parented (AbsoluteSize must be known).
-function UiKit.fitText(label: TextLabel, maxTextSize: number, minTextSize: number)
+-- Call after the label is parented (AbsoluteSize must be known). margin is
+-- the breathing room kept at the label's edges (default 8 px; button
+-- labels pass 2 because their size already carries a 6 px side inset).
+function UiKit.fitText(label: TextLabel, maxTextSize: number, minTextSize: number, margin: number?)
 	local width = label.AbsoluteSize.X
 	if width <= 0 then
 		return
 	end
+	local inset = margin or 8
 	local size = maxTextSize
 	while size > minTextSize do
 		local measured = TextService:GetTextSize(label.Text, size, label.Font, Vector2.new(width, 10000))
-		if measured.X <= width - 8 then
+		if measured.X <= width - inset then
 			break
 		end
 		size -= 1

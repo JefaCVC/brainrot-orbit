@@ -162,7 +162,7 @@ local function buildTitleGui(playerGui: Instance)
 	end
 
 	-- Pulsing PLAY button (the pulse loop runs in init).
-	playButton = UiKit.button(gui, "PlayButton", UDim2.new(0.5, -150, 1, -128), UDim2.new(0, 300, 0, 86), UiKit.COLORS.green, "▶  PLAY", "Catch them all!")
+	playButton = UiKit.button(gui, "PlayButton", UDim2.new(0.5, -150, 1, -128), UDim2.new(0, 300, 0, 86), UiKit.COLORS.green, "▶  PLAY", "Catch them all!", 30, 15)
 	playButton.MouseButton1Click:Connect(function()
 		TitleController.dismiss()
 	end)

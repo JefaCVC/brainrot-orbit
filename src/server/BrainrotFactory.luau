@@ -309,7 +309,10 @@ end
 -- Builds one brainrot of the given species and mutation at the origin; the
 -- caller moves it with :PivotTo(). The model carries IsBrainrot, SpeciesName,
 -- Mutation, BrainrotId and Animate attributes for the animator and the services.
-function BrainrotFactory.buildBrainrotModel(speciesName: string, mutation: string, brainrotId: string): Model
+-- Set noNameTag to skip the floating name tag (showcase pedestals: the
+-- rarity plaque already names the model, and six 150 px tags 5 studs apart
+-- stack on top of each other).
+function BrainrotFactory.buildBrainrotModel(speciesName: string, mutation: string, brainrotId: string, noNameTag: boolean?): Model
 	local species = BrainrotData.getSpecies(speciesName)
 	assert(species ~= nil, `[BrainrotFactory] unknown species {speciesName}`)
 	local data = species :: any
@@ -392,7 +395,10 @@ function BrainrotFactory.buildBrainrotModel(speciesName: string, mutation: strin
 	local rate = BrainrotData.getRate(data.name, mutation)
 	-- The tag shows the name (in the rarity color) and the income only;
 	-- the mutation reads from the glow ring, the light and the particles.
-	addNameTag(model, body, data.name, FormatUtil.formatRate(rate), BrainrotData.RARITY_COLORS[data.rarity], Color3.fromRGB(120, 255, 140))
+	-- Pedestal models skip the tag: their plaque names the rarity.
+	if not noNameTag then
+		addNameTag(model, body, data.name, FormatUtil.formatRate(rate), BrainrotData.RARITY_COLORS[data.rarity], Color3.fromRGB(120, 255, 140))
+	end
 
 	model:SetAttribute("IsBrainrot", true)
 	model:SetAttribute("SpeciesName", data.name)
