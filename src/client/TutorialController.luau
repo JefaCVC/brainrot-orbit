@@ -250,13 +250,13 @@ function TutorialController.init()
 	gui.ResetOnSpawn = false
 	gui.Parent = playerGui
 
-	-- Left side, clear of the top bar, the roster and the cargo panel.
-	local frame = UiKit.makeFrame(gui, "Tutorial", UDim2.new(0, 12, 0, 120), UDim2.new(0, 320, 0, 76), UiKit.PANEL_BG, UiKit.PANEL_BG_TRANSPARENCY)
+	-- Left side, clear of the top bar, the roster and the cash card.
+	local frame = UiKit.panel(gui, "Tutorial", UDim2.new(0, 12, 0, 120), UDim2.new(0, 320, 0, 76), nil)
 	frame.Visible = false
 	tutorialFrame = frame
-	UiKit.makeLabel(frame, "Title", UDim2.new(0, 10, 0, 4), UDim2.new(0, 120, 0, 22), "TUTORIAL", 14, UiKit.ACCENT, true).TextXAlignment =
+	UiKit.makeLabel(frame, "Title", UDim2.new(0, 10, 0, 4), UDim2.new(0, 120, 0, 22), "TUTORIAL", 14, UiKit.COLORS.orange, true).TextXAlignment =
 		Enum.TextXAlignment.Left
-	local dismiss = UiKit.makeButton(frame, "Dismiss", UDim2.new(1, -32, 0, 4), UDim2.new(0, 26, 0, 26), "X", 15, Color3.fromRGB(160, 60, 60))
+	local dismiss = UiKit.button(frame, "Dismiss", UDim2.new(1, -34, 0, 4), UDim2.new(0, 28, 0, 28), UiKit.COLORS.red, "X", nil)
 	dismiss.MouseButton1Click:Connect(function()
 		TutorialController.hide()
 	end)
@@ -300,7 +300,7 @@ function TutorialController.init()
 	arrow.Text = "▼"
 	arrow.TextColor3 = Color3.fromRGB(255, 200, 60)
 	arrow.TextSize = 40
-	arrow.Font = Enum.Font.GothamBold
+	arrow.Font = Enum.Font.FredokaOne
 	arrow.TextStrokeColor3 = Color3.fromRGB(20, 20, 20)
 	arrow.TextStrokeTransparency = 0.2
 	arrow.Parent = tag

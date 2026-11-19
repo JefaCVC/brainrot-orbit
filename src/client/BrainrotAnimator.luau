@@ -1,12 +1,12 @@
 --!strict
 -- BrainrotAnimator
 -- Procedural client-side animation for BRAINROT ORBIT: docked and pedestal
--- brainrots bob gently, crew NPCs sway or slowly turn at their posts. No
--- animation assets — every motion is a sine wave over the model's base
--- CFrame, and models further than ~220 studs from the camera are skipped
--- entirely (culled). Wild brainrots are NOT animated here: the server moves
--- them (with its own waddle), and a client offset would fight the server's
--- CFrame updates.
+-- brainrots bob gently (pedestal showpieces slowly rotate too), crew NPCs
+-- sway or slowly turn at their posts. No animation assets — every motion
+-- is a sine wave over the model's base CFrame, and models further than
+-- ~220 studs from the camera are skipped entirely (culled). Wild brainrots
+-- are NOT animated here: the server moves them (with its own waddle), and
+-- a client offset would fight the server's CFrame updates.
 
 -- Engine types used in annotations below (the values come from Roblox at runtime).
 type Model = any
@@ -25,7 +25,7 @@ type AnimatedEntry = {
 	model: Model,
 	base: CFrame,
 	phase: number,
-	kind: string, -- "Bob" | "Sway" | "Turn"
+	kind: string, -- "Bob" | "Sway" | "Turn" | "Spin"
 }
 
 local animated: { [Model]: AnimatedEntry } = {}
@@ -41,7 +41,7 @@ local function scanForAnimatedModels()
 	for _, descendant in Workspace:GetDescendants() do
 		if descendant:IsA("Model") then
 			local animate = descendant:GetAttribute("Animate")
-			if (animate == "Bob" or animate == "Sway" or animate == "Turn") and animated[descendant] == nil then
+			if (animate == "Bob" or animate == "Sway" or animate == "Turn" or animate == "Spin") and animated[descendant] == nil then
 				phaseCounter += 0.7
 				animated[descendant] = {
 					model = descendant,
@@ -75,8 +75,18 @@ local function onRenderStepped()
 			continue
 		end
 		if entry.kind == "Bob" then
+			-- Bob + breathe: a gentle vertical bob with a slow yaw sway,
+			-- so docked brainrots feel alive instead of floating.
 			local bob = math.sin(now * 2 + entry.phase) * 0.3
-			model:PivotTo(entry.base * CFrame.new(0, bob, 0))
+			local breathe = math.sin(now * 0.8 + entry.phase) * 0.05
+			model:PivotTo(entry.base * CFrame.new(0, bob, 0) * CFrame.Angles(0, breathe, 0))
+		elseif entry.kind == "Spin" then
+			-- Showcase pedestal: a slow yaw sweep (±0.45 rad) plus the
+			-- same gentle bob, so the title screen's lineup turns to
+			-- show off each brainrot.
+			local turn = math.sin(now * 0.4 + entry.phase) * 0.45
+			local bob = math.sin(now * 2 + entry.phase) * 0.3
+			model:PivotTo(entry.base * CFrame.new(0, bob, 0) * CFrame.Angles(0, turn, 0))
 		elseif entry.kind == "Sway" then
 			local sway = math.sin(now * 0.8 + entry.phase) * 0.12
 			model:PivotTo(entry.base * CFrame.Angles(0, sway, 0))

@@ -1,17 +1,18 @@
 --!strict
 -- PanelsController
--- The three pop-up panels of BRAINROT ORBIT: Upgrades (the four named,
--- levelled tracks with prices), the Brainrot Index (all 30 species in a
--- scrollable grid, undiscovered ones as ??? silhouettes) and the Rebirth
--- confirmation dialog. Panels open over the HUD, pause nothing, and close
--- with their X button, the same button that opened them, or the tour's
--- openPanels command (which opens Index + Upgrades together for the
--- dossier shot).
+-- The three pop-up panels of BRAINROT ORBIT, restyled round 5 on the
+-- cartoon UiKit: Upgrades (the four named, levelled tracks with candy buy
+-- buttons), the Brainrot Index (all 30 species in a scrollable grid,
+-- undiscovered ones as ??? silhouettes) and the Rebirth confirmation
+-- dialog. Panels open over the HUD, pause nothing, and close with their X
+-- button, the same button that opened them, or the tour's openPanels
+-- command (which opens Index + Upgrades together for the dossier shot).
 
 -- Engine types used in annotations below (the values come from Roblox at runtime).
 type ScreenGui = any
 type Instance = any
 type TextLabel = any
+type TextButton = any
 type Frame = any
 type RemoteEvent = any
 
@@ -35,33 +36,42 @@ local rebirthDialog: Frame? = nil
 local rebirthCostLabel: TextLabel? = nil
 
 local TRACK_ORDER = { "Beam", "Cargo", "Shield", "Expansion" } :: { string }
+local TRACK_COLORS: { [string]: any } = {
+	Beam = UiKit.COLORS.cyan,
+	Cargo = UiKit.COLORS.green,
+	Shield = UiKit.COLORS.blue,
+	Expansion = UiKit.COLORS.purple,
+}
 
 local function closeButton(parent: Frame, onClose: () -> ())
-	local button = UiKit.makeButton(parent, "Close", UDim2.new(1, -38, 0, 6), UDim2.new(0, 30, 0, 30), "X", 18, Color3.fromRGB(160, 60, 60))
+	local button = UiKit.button(parent, "Close", UDim2.new(1, -40, 0, 6), UDim2.new(0, 32, 0, 32), UiKit.COLORS.red, "X", nil)
 	button.MouseButton1Click:Connect(onClose)
 	return button
 end
 
 local function buildUpgradesPanel(gui: ScreenGui)
-	local panel = UiKit.makeFrame(gui, "UpgradesPanel", UDim2.new(0.5, -260, 0.5, -190), UDim2.new(0, 520, 0, 380), UiKit.PANEL_BG, 0.05)
+	local panel = UiKit.panel(gui, "UpgradesPanel", UDim2.new(0.5, -260, 0.5, -190), UDim2.new(0, 520, 0, 380), nil)
 	panel.Visible = false
-	UiKit.makeLabel(panel, "Title", UDim2.new(0, 12, 0, 6), UDim2.new(0, 300, 0, 32), "UPGRADES", 22, UiKit.TEXT, true)
+	UiKit.makeLabel(panel, "Title", UDim2.new(0, 12, 0, 6), UDim2.new(0, 300, 0, 32), "UPGRADES", 22, UiKit.TEXT, true).TextXAlignment =
+		Enum.TextXAlignment.Left
 	closeButton(panel, function()
 		PanelsController.hideUpgrades()
 	end)
 	for i, track in TRACK_ORDER do
 		local trackData = BrainrotData.UPGRADES[track]
 		local y = 48 + (i - 1) * 80
-		local row = UiKit.makeFrame(panel, `{track}Row`, UDim2.new(0, 12, 0, y), UDim2.new(1, -24, 0, 72), Color3.fromRGB(26, 38, 60), 0.1)
-		UiKit.makeLabel(row, "Name", UDim2.new(0, 10, 0, 4), UDim2.new(0, 220, 0, 26), trackData.displayName, 18, UiKit.TEXT, true).TextXAlignment =
+		local row = UiKit.makeFrame(panel, `{track}Row`, UDim2.new(0, 12, 0, y), UDim2.new(1, -24, 0, 72), UiKit.CREAM_DARK, 0.1)
+		local stripe = UiKit.makeFrame(row, "Stripe", UDim2.new(0, 0, 0, 6), UDim2.new(0, 10, 1, -12), TRACK_COLORS[track], 0)
+		stripe.Name = "Stripe"
+		UiKit.makeLabel(row, "Name", UDim2.new(0, 18, 0, 4), UDim2.new(0, 220, 0, 26), trackData.displayName, 18, UiKit.TEXT, true).TextXAlignment =
 			Enum.TextXAlignment.Left
-		local blurb = UiKit.makeLabel(row, "Blurb", UDim2.new(0, 10, 0, 30), UDim2.new(0, 220, 0, 36), trackData.blurb, 13, UiKit.MUTED, false)
+		local blurb = UiKit.makeLabel(row, "Blurb", UDim2.new(0, 18, 0, 30), UDim2.new(0, 220, 0, 36), trackData.blurb, 13, UiKit.MUTED, false)
 		blurb.TextXAlignment = Enum.TextXAlignment.Left
 		-- The level label is 150 px wide and fitted down to 11 pt, so even
 		-- the longest level name ("Lv 2 — Triple Bubble") fits on one line.
 		local levelLabel = UiKit.makeLabel(row, "Level", UDim2.new(0, 240, 0, 4), UDim2.new(0, 150, 0, 26), "Lv 0", 15, UiKit.ACCENT, true)
 		levelLabel.Name = "Level"
-		local buyButton = UiKit.makeButton(row, "Buy", UDim2.new(1, -120, 0, 14), UDim2.new(0, 108, 0, 44), "$500", 16, Color3.fromRGB(40, 130, 70))
+		local buyButton = UiKit.button(row, "Buy", UDim2.new(1, -120, 0, 14), UDim2.new(0, 108, 0, 44), UiKit.COLORS.green, "$500", nil)
 		buyButton.Name = "Buy"
 		buyButton.MouseButton1Click:Connect(function()
 			local remote = Remotes.waitFor("BuyUpgrade") :: RemoteEvent?
@@ -85,7 +95,7 @@ local function refreshUpgradesPanel()
 		if row then
 			local level = upgrades[track] or 0
 			local levelLabel = row:FindFirstChild("Level") :: TextLabel?
-			local buyButton = row:FindFirstChild("Buy") :: any
+			local buyButton = row:FindFirstChild("Buy") :: TextButton?
 			if levelLabel then
 				local levelName = trackData.levels[level + 1].name
 				levelLabel.Text = `Lv {level} — {levelName}`
@@ -93,12 +103,12 @@ local function refreshUpgradesPanel()
 			end
 			if buyButton then
 				if level >= #trackData.levels - 1 then
-					buyButton.Text = "MAX"
-					buyButton.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+					UiKit.setButtonTitle(buyButton, "MAX")
+					UiKit.setButtonColor(buyButton, Color3.fromRGB(140, 140, 150))
 				else
 					local nextLevel = trackData.levels[level + 2]
-					buyButton.Text = `{FormatUtil.formatMoney(nextLevel.cost)}`
-					buyButton.BackgroundColor3 = Color3.fromRGB(40, 130, 70)
+					UiKit.setButtonTitle(buyButton, FormatUtil.formatMoney(nextLevel.cost))
+					UiKit.setButtonColor(buyButton, UiKit.COLORS.green)
 				end
 			end
 		end
@@ -106,16 +116,17 @@ local function refreshUpgradesPanel()
 end
 
 local function buildIndexPanel(gui: ScreenGui)
-	local panel = UiKit.makeFrame(gui, "IndexPanel", UDim2.new(0.5, -260, 0.5, -190), UDim2.new(0, 520, 0, 380), UiKit.PANEL_BG, 0.05)
+	local panel = UiKit.panel(gui, "IndexPanel", UDim2.new(0.5, -260, 0.5, -190), UDim2.new(0, 520, 0, 380), nil)
 	panel.Visible = false
-	UiKit.makeLabel(panel, "Title", UDim2.new(0, 12, 0, 6), UDim2.new(0, 300, 0, 32), "BRAINROT INDEX", 22, UiKit.TEXT, true)
+	UiKit.makeLabel(panel, "Title", UDim2.new(0, 12, 0, 6), UDim2.new(0, 300, 0, 32), "BRAINROT INDEX", 22, UiKit.TEXT, true).TextXAlignment =
+		Enum.TextXAlignment.Left
 	closeButton(panel, function()
 		PanelsController.hideIndex()
 	end)
 	-- The grid scrolls: 30 species in 5 columns need 6 rows, which is
 	-- taller than the panel. The canvas is sized from the roster so a
 	-- future species never overflows the panel again.
-	local grid = UiKit.makeScrollingFrame(panel, "Grid", UDim2.new(0, 12, 0, 46), UDim2.new(1, -24, 0, 322), UiKit.PANEL_BG, 1)
+	local grid = UiKit.makeScrollingFrame(panel, "Grid", UDim2.new(0, 12, 0, 46), UDim2.new(1, -24, 0, 322), UiKit.CREAM, 1)
 	grid.BackgroundTransparency = 1
 	local columns = 5
 	local cellWidth = 94
@@ -127,8 +138,9 @@ local function buildIndexPanel(gui: ScreenGui)
 		local rowIndex = math.floor((i - 1) / columns)
 		local x = col * (cellWidth + 4)
 		local y = rowIndex * (cellHeight + 4)
-		local cell = UiKit.makeFrame(grid, `Cell{i}`, UDim2.new(0, x, 0, y), UDim2.new(0, cellWidth, 0, cellHeight), Color3.fromRGB(26, 38, 60), 0.1)
+		local cell = UiKit.makeFrame(grid, `Cell{i}`, UDim2.new(0, x, 0, y), UDim2.new(0, cellWidth, 0, cellHeight), UiKit.CREAM_DARK, 0.1)
 		local rarityColor = BrainrotData.RARITY_COLORS[species.rarity]
+		UiKit.makeHeaderStrip(cell, rarityColor)
 		UiKit.makeLabel(cell, "Name", UDim2.new(0, 4, 0, 4), UDim2.new(1, -8, 0, 30), species.name, 12, UiKit.TEXT, true)
 		UiKit.makeLabel(cell, "Rate", UDim2.new(0, 4, 0, 34), UDim2.new(1, -8, 0, 18), FormatUtil.formatRate(species.rate), 12, UiKit.GOLD, true)
 		UiKit.makeLabel(cell, "Rarity", UDim2.new(0, 4, 0, 52), UDim2.new(1, -8, 0, 18), string.upper(species.rarity), 11, rarityColor, true)
@@ -167,7 +179,7 @@ local function refreshIndexPanel()
 					rarityLabel.Text = string.upper(species.rarity)
 					rarityLabel.TextColor3 = BrainrotData.RARITY_COLORS[species.rarity]
 				end
-				(cell :: Frame).BackgroundColor3 = Color3.fromRGB(26, 38, 60)
+				(cell :: Frame).BackgroundColor3 = UiKit.CREAM_DARK
 			else
 				if nameLabel then
 					nameLabel.Text = "???"
@@ -181,7 +193,7 @@ local function refreshIndexPanel()
 					rarityLabel.Text = "???"
 					rarityLabel.TextColor3 = UiKit.MUTED
 				end
-				(cell :: Frame).BackgroundColor3 = Color3.fromRGB(20, 26, 36)
+				(cell :: Frame).BackgroundColor3 = Color3.fromRGB(210, 200, 185)
 			end
 		end
 	end
@@ -198,7 +210,7 @@ local function refreshIndexPanel()
 end
 
 local function buildRebirthDialog(gui: ScreenGui)
-	local dialog = UiKit.makeFrame(gui, "RebirthDialog", UDim2.new(0.5, -200, 0.5, -110), UDim2.new(0, 400, 0, 220), UiKit.PANEL_BG, 0.02)
+	local dialog = UiKit.panel(gui, "RebirthDialog", UDim2.new(0.5, -200, 0.5, -110), UDim2.new(0, 400, 0, 220), nil)
 	dialog.Visible = false
 	UiKit.makeLabel(dialog, "Title", UDim2.new(0, 12, 0, 8), UDim2.new(1, -24, 0, 32), "OPEN A NEW STATION RING?", 20, UiKit.TEXT, true)
 	rebirthCostLabel = UiKit.makeLabel(dialog, "Cost", UDim2.new(0, 12, 0, 44), UDim2.new(1, -24, 0, 28), "Cost: $5,000", 17, UiKit.GOLD, true)
@@ -212,7 +224,7 @@ local function buildRebirthDialog(gui: ScreenGui)
 		UiKit.MUTED,
 		false
 	)
-	local confirm = UiKit.makeButton(dialog, "Confirm", UDim2.new(0, 24, 0, 158), UDim2.new(0, 160, 0, 44), "REBIRTH!", 18, Color3.fromRGB(150, 80, 200))
+	local confirm = UiKit.button(dialog, "Confirm", UDim2.new(0, 24, 0, 158), UDim2.new(0, 160, 0, 44), UiKit.COLORS.purple, "REBIRTH!", nil)
 	confirm.MouseButton1Click:Connect(function()
 		local remote = Remotes.waitFor("Rebirth") :: RemoteEvent?
 		if remote then
@@ -220,7 +232,7 @@ local function buildRebirthDialog(gui: ScreenGui)
 		end
 		PanelsController.hideRebirthConfirm()
 	end)
-	local cancel = UiKit.makeButton(dialog, "Cancel", UDim2.new(1, -184, 0, 158), UDim2.new(0, 160, 0, 44), "NOT YET", 18, UiKit.BUTTON_BG)
+	local cancel = UiKit.button(dialog, "Cancel", UDim2.new(1, -184, 0, 158), UDim2.new(0, 160, 0, 44), Color3.fromRGB(140, 140, 150), "NOT YET", nil)
 	cancel.MouseButton1Click:Connect(function()
 		PanelsController.hideRebirthConfirm()
 	end)
@@ -231,6 +243,7 @@ function PanelsController.showUpgrades()
 	refreshUpgradesPanel()
 	if upgradesPanel then
 		upgradesPanel.Visible = true
+		UiKit.pop(upgradesPanel)
 	end
 end
 
@@ -252,6 +265,7 @@ function PanelsController.showIndex()
 	refreshIndexPanel()
 	if indexPanel then
 		indexPanel.Visible = true
+		UiKit.pop(indexPanel)
 	end
 end
 
@@ -276,6 +290,7 @@ function PanelsController.showRebirthConfirm()
 	end
 	if rebirthDialog then
 		rebirthDialog.Visible = true
+		UiKit.pop(rebirthDialog)
 	end
 end
 

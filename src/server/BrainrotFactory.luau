@@ -183,44 +183,116 @@ local function addAccessory(model: Model, body: BasePart, accessory: string, acc
 	end
 end
 
--- Name tag: 180 px wide with a two-line name area, so even the longest
--- mutated title ("Dark Matter Donut [COSMIC]", 27 chars) wraps instead of
--- clipping. The subtitle (rate + rarity) always fits on one line.
-local function addNameTag(model: Model, body: BasePart, title: string, subtitle: string, subtitleColor: Color3)
+-- Name tag, COMPACT (round 5 label fix): 150x36 px, two lines only — the
+-- name (TextScaled, colored by rarity) and one short subtitle (income or
+-- role). MaxDistance 35, so tags only render up close. Together with the
+-- 14-stud wild separation in WildSpawner, two tags can no longer stack:
+-- at 35 studs a 150 px tag spans ~5.7 studs of screen width, so neighbours
+-- 14 studs apart keep ~8 studs of clear gap; docked pods are 4 studs apart
+-- but viewed from 15+ studs the tag spans ~2.5 studs, so pod tags clear
+-- each other too. The longest name ("Dark Matter Donut", 17 chars) fits
+-- the 150 px line at 15 pt FredokaOne; TextScaled covers anything longer.
+local function addNameTag(model: Model, body: BasePart, title: string, subtitle: string, titleColor: Color3, subtitleColor: Color3)
 	local tag = Instance.new("BillboardGui")
 	tag.Name = "NameTag"
-	tag.Size = UDim2.new(0, 180, 0, 64)
+	tag.Size = UDim2.new(0, 150, 0, 36)
 	tag.StudsOffset = Vector3.new(0, 3.4, 0)
-	-- Tags only render within 45 studs: at 140 every brainrot in the hub
-	-- rendered its tag at once and they piled into an unreadable wall.
-	tag.MaxDistance = 45
+	tag.MaxDistance = 35
 	tag.AlwaysOnTop = false
 	tag.Adornee = body
 
 	local nameLabel = Instance.new("TextLabel")
 	nameLabel.Name = "NameLabel"
-	nameLabel.Size = UDim2.new(1, 0, 0, 40)
+	nameLabel.Size = UDim2.new(1, 0, 0, 20)
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Text = title
-	nameLabel.TextColor3 = WHITE
+	nameLabel.TextColor3 = titleColor
 	nameLabel.TextSize = 15
-	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.TextWrapped = true
+	nameLabel.Font = Enum.Font.FredokaOne
+	nameLabel.TextScaled = true
+	nameLabel.TextWrapped = false
+	nameLabel.TextStrokeColor3 = Color3.fromRGB(58, 32, 30)
+	nameLabel.TextStrokeTransparency = 0.1
 	nameLabel.Parent = tag
 
 	local subLabel = Instance.new("TextLabel")
 	subLabel.Name = "RateLabel"
-	subLabel.Position = UDim2.new(0, 0, 0, 40)
-	subLabel.Size = UDim2.new(1, 0, 0, 20)
+	subLabel.Position = UDim2.new(0, 0, 0, 20)
+	subLabel.Size = UDim2.new(1, 0, 0, 16)
 	subLabel.BackgroundTransparency = 1
 	subLabel.Text = subtitle
 	subLabel.TextColor3 = subtitleColor
-	subLabel.TextSize = 14
-	subLabel.Font = Enum.Font.GothamBold
-	subLabel.TextWrapped = true
+	subLabel.TextSize = 13
+	subLabel.Font = Enum.Font.FredokaOne
+	subLabel.TextScaled = true
+	subLabel.TextWrapped = false
+	subLabel.TextStrokeColor3 = Color3.fromRGB(58, 32, 30)
+	subLabel.TextStrokeTransparency = 0.1
 	subLabel.Parent = tag
 
 	tag.Parent = model
+end
+
+-- Mutation effects: material + light + particles, not just paint. Eyes and
+-- pupils are never recolored (they keep the face readable), and Neon glow
+-- rings keep their own material. Accessories shift 65% toward the mutation
+-- color so the whole creature reads as mutated at a glance.
+local function addMutationEffects(model: Model, body: BasePart, mutation: string)
+	local mutationColor = BrainrotData.MUTATION_COLORS[mutation]
+	if not mutationColor or mutation == "None" then
+		return
+	end
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("BasePart") and descendant ~= body then
+			local name = descendant.Name
+			if name ~= "Eye" and name ~= "Pupil" and descendant.Material ~= Enum.Material.Neon then
+				descendant.Color = descendant.Color:Lerp(mutationColor, 0.65)
+			end
+		end
+	end
+	if mutation == "Gold" then
+		body.Material = Enum.Material.Metal
+		body.Reflectance = 0.25
+	elseif mutation == "Diamond" then
+		body.Material = Enum.Material.Glass
+	elseif mutation == "Irradiated" then
+		body.Material = Enum.Material.CrackedLava
+		local fire = Instance.new("Fire")
+		fire.Name = "IrradiatedFire"
+		fire.Color = Color3.fromRGB(140, 255, 100)
+		fire.SecondaryColor = Color3.fromRGB(80, 200, 60)
+		fire.Size = 4
+		fire.Heat = 4
+		fire.Parent = body
+	elseif mutation == "Cosmic" then
+		body.Material = Enum.Material.Glass
+		local sparkles = Instance.new("Sparkles")
+		sparkles.Name = "CosmicSparkles"
+		sparkles.SparkleColor = Color3.fromRGB(200, 120, 255)
+		sparkles.Parent = body
+	end
+	-- Every mutation glows: a point light in the mutation color, plus a
+	-- sparkle emitter for Gold and Diamond.
+	local light = Instance.new("PointLight")
+	light.Name = "MutationLight"
+	light.Color = mutationColor
+	light.Range = 12
+	light.Brightness = 1.5
+	light.Parent = body
+	if mutation == "Gold" or mutation == "Diamond" then
+		local emitter = Instance.new("ParticleEmitter")
+		emitter.Name = "MutationSparkle"
+		emitter.Enabled = true
+		emitter.Rate = 8
+		emitter.Lifetime = NumberRange.new(1, 2)
+		emitter.Speed = NumberRange.new(1, 2)
+		emitter.SpreadAngle = Vector2.new(180, 180)
+		emitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		emitter.Color = ColorSequence.new(mutationColor)
+		emitter.Size = NumberSequence.new(0.4)
+		emitter.Transparency = NumberSequence.new(0.1, 1)
+		emitter.Parent = body
+	end
 end
 
 -- How high a brainrot's model pivot floats above the surface it stands on
@@ -243,19 +315,17 @@ function BrainrotFactory.buildBrainrotModel(speciesName: string, mutation: strin
 	local data = species :: any
 	local scale = effectiveScale(data)
 
+	-- The mutation recolors the body; the material, light and particles
+	-- come from addMutationEffects below (after the accessories exist).
 	local bodyColor = data.bodyColor :: Color3
-	local material = Enum.Material.SmoothPlastic
 	if mutation == "Gold" then
 		bodyColor = Color3.fromRGB(255, 210, 60)
 	elseif mutation == "Diamond" then
 		bodyColor = Color3.fromRGB(190, 235, 255)
-		material = Enum.Material.Glass
 	elseif mutation == "Irradiated" then
 		bodyColor = Color3.fromRGB(140, 255, 100)
-		material = Enum.Material.Neon
 	elseif mutation == "Cosmic" then
 		bodyColor = Color3.fromRGB(230, 110, 255)
-		material = Enum.Material.Neon
 	end
 
 	local model = Instance.new("Model")
@@ -270,7 +340,6 @@ function BrainrotFactory.buildBrainrotModel(speciesName: string, mutation: strin
 		bodySize = Vector3.new(2.4 * scale, 2.4 * scale, 2.4 * scale)
 	end
 	local body = makePart("Body", data.bodyShape, bodySize, bodyColor, Vector3.new(0, 1.6 * scale, 0))
-	body.Material = material
 	body.Parent = model
 	model.PrimaryPart = body
 
@@ -283,6 +352,7 @@ function BrainrotFactory.buildBrainrotModel(speciesName: string, mutation: strin
 		accessory = "Spots"
 	end
 	addAccessory(model, body, accessory, data.accentColor, scale)
+	addMutationEffects(model, body, mutation)
 
 	-- Glow rings sit just above the floor the brainrot stands on. The
 	-- model's pivot is the body center, so the ring's height in model
@@ -320,12 +390,9 @@ function BrainrotFactory.buildBrainrotModel(speciesName: string, mutation: strin
 	end
 
 	local rate = BrainrotData.getRate(data.name, mutation)
-	local title = data.name
-	if mutation ~= "None" then
-		title = `{data.name} [{string.upper(mutation)}]`
-	end
-	local subtitle = `{FormatUtil.formatRate(rate)} - {data.rarity}`
-	addNameTag(model, body, title, subtitle, BrainrotData.RARITY_COLORS[data.rarity])
+	-- The tag shows the name (in the rarity color) and the income only;
+	-- the mutation reads from the glow ring, the light and the particles.
+	addNameTag(model, body, data.name, FormatUtil.formatRate(rate), BrainrotData.RARITY_COLORS[data.rarity], Color3.fromRGB(120, 255, 140))
 
 	model:SetAttribute("IsBrainrot", true)
 	model:SetAttribute("SpeciesName", data.name)
@@ -360,7 +427,7 @@ function BrainrotFactory.buildZorkModel(): Model
 	local sack = makePart("LootSack", "Ball", Vector3.new(1.4, 1.4, 1.4), Color3.fromRGB(150, 110, 60), torso.Position + Vector3.new(0, 0.4, -1.0))
 	sack.Parent = model
 
-	addNameTag(model, torso, "ZORK the Snatcher", "Bonk him 3x with [F]!", Color3.fromRGB(255, 90, 90))
+	addNameTag(model, torso, "ZORK the Snatcher", "Bonk him 3x! [F]", Color3.fromRGB(255, 90, 90), Color3.fromRGB(255, 220, 120))
 	model:SetAttribute("IsZork", true)
 	return model
 end
@@ -389,7 +456,7 @@ function BrainrotFactory.buildCrewNpc(name: string, role: string, uniformColor: 
 		leg.Parent = model
 	end
 
-	addNameTag(model, torso, name, role, Color3.fromRGB(150, 220, 255))
+	addNameTag(model, torso, name, role, WHITE, Color3.fromRGB(150, 220, 255))
 	model:SetAttribute("IsCrewNpc", true)
 	model:SetAttribute("Animate", "Sway")
 	return model
@@ -415,7 +482,7 @@ function BrainrotFactory.buildCleaningRobot(): Model
 	light.Material = Enum.Material.Neon
 	light.Parent = model
 
-	addNameTag(model, body, "MOP-BOT", "Cleaning the deck...", Color3.fromRGB(150, 220, 150))
+	addNameTag(model, body, "MOP-BOT", "Cleaning the deck", WHITE, Color3.fromRGB(150, 220, 150))
 	model:SetAttribute("IsRobot", true)
 	return model
 end
@@ -450,7 +517,7 @@ function BrainrotFactory.buildDeliveryDrone(): Model
 	beacon.Material = Enum.Material.Neon
 	beacon.Parent = model
 
-	addNameTag(model, body, "DELIVERY DRONE", "Supplies for the modules!", Color3.fromRGB(255, 200, 140))
+	addNameTag(model, body, "DELIVERY DRONE", "Supply run!", WHITE, Color3.fromRGB(255, 200, 140))
 	model:SetAttribute("IsRobot", true)
 	return model
 end

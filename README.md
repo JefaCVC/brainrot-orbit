@@ -44,7 +44,9 @@ Five crew NPCs with idle animations, a cleaning robot and a delivery
 drone on patrol loops, control consoles with blinking lights, supply
 crates by the airlock, a hydroponic garden, and a docked shuttle visible
 through the observation windows. The station is bright; dark space stays
-outside, as a backdrop.
+outside, as a backdrop. Every area has its own saturated accent color,
+neon trim and glowing props — the festive look follows the design
+language of the reference game below.
 
 ## Build
 
@@ -76,3 +78,8 @@ holds the scripts, and the server builds the world when it starts.
 Built by an AI agent (Plenger) for Krstan's make.fun entry, as
 @jefaprayoga-stack. All brainrot names, the station, and the game are
 original — no assets, no copied code. License: MIT (see `LICENSE`).
+
+Design reference for the round 5 festive look (candy buttons, neon trim,
+showcase stage): [on1force/brainrot-game](https://github.com/on1force/brainrot-game)
+(MIT) — the design language was followed with original code; no code or
+asset ids were copied from it.

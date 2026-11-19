@@ -3,14 +3,16 @@
 -- Builds the whole BRAINROT ORBIT station at runtime, from plain parts: an
 -- ENCLOSED industrial spaceship interior (grey metal floors, walls and
 -- ceiling, orange ceiling pipes, hazard trim, colored console buttons, wall
--- screens and neon accent lights), eight player modules with habitat pods
--- and shield domes, a hydroponic garden, an airlock, title pedestals, five
--- crew NPCs, a cleaning robot, a delivery drone, control consoles with
--- blinking lights, yellow supply crates, a docked shuttle, and the space
--- backdrop (planet, moon, satellites, stars, nebulae) visible through the
--- windows and the ceiling skylight. Color comes from the details and the
--- lights, not from painted walls — the saturated brainrots are the color
--- pop against the grey metal.
+-- screens and neon accent lights), eight player modules with tiered habitat
+-- pods and shield domes, a hydroponic garden, an airlock, a showcase stage
+-- with climbing rarity pedestals, five crew NPCs, a cleaning robot, a
+-- delivery drone, control consoles with blinking lights, yellow supply
+-- crates, dense colorful props, a docked shuttle, and the space backdrop
+-- (planets, moon, satellites, stars, nebulae, a comet) visible through the
+-- windows and the ceiling skylight. Round 5 pushes the color further: each
+-- area has its own saturated accent, neon trim and point lights are
+-- everywhere, and Bloom + ColorCorrection (Saturation +0.25) lift the
+-- whole world. The station stays BRIGHT — dark space stays outside.
 --
 -- Everything is anchored and deterministic: the same layout every server, so
 -- the dossier screenshots and the TOUR.json steps always match the world.
@@ -58,6 +60,16 @@ local MODULE_ACCENTS = {
 	Color3.fromRGB(255, 100, 100),
 } :: { Color3 }
 
+-- Per-area station colors (round 5): each deck area gets its own saturated
+-- accent, used in its gate lamps, signs and trim — like the reference
+-- game's color-coded zones, so a player always knows where they stand.
+local AREA_COLORS = {
+	hub = Color3.fromRGB(60, 220, 220),
+	garden = Color3.fromRGB(90, 220, 120),
+	airlock = Color3.fromRGB(255, 150, 60),
+	outer = Color3.fromRGB(255, 170, 60),
+} :: { [string]: Color3 }
+
 local rng = Random.new()
 
 -- Warm interior light against cool dark space. This overrides the bright
@@ -76,6 +88,30 @@ local function configureLighting()
 	Lighting.FogColor = Color3.fromRGB(8, 10, 24)
 	Lighting.FogStart = 2000
 	Lighting.FogEnd = 10000
+	-- Round 5: Bloom makes every Neon glow, ColorCorrection lifts the
+	-- saturation of the whole world by +0.25, SunRays adds a soft halo.
+	-- Old effects are removed first so a rebuild never stacks them.
+	for _, name in { "OrbitBloom", "OrbitColorCorrection", "OrbitSunRays" } do
+		local existing = Lighting:FindFirstChild(name)
+		if existing then
+			existing:Destroy()
+		end
+	end
+	local bloom = Instance.new("BloomEffect")
+	bloom.Name = "OrbitBloom"
+	bloom.Intensity = 0.7
+	bloom.Size = 28
+	bloom.Threshold = 0.92
+	bloom.Parent = Lighting
+	local correction = Instance.new("ColorCorrectionEffect")
+	correction.Name = "OrbitColorCorrection"
+	correction.Saturation = 0.25
+	correction.Contrast = 0.08
+	correction.Parent = Lighting
+	local rays = Instance.new("SunRaysEffect")
+	rays.Name = "OrbitSunRays"
+	rays.Intensity = 0.06
+	rays.Parent = Lighting
 end
 
 local function newFolder(name: string, parent: Instance): Instance
@@ -195,6 +231,31 @@ local function addSign(parent: Instance, position: Vector3, title: string, subti
 	subLabel.Parent = tag
 	tag.Parent = parent
 	return titleLabel
+end
+
+-- A zone-gate banner on both faces of a beam part: TextScaled LuckiestGuy
+-- text in the area color, so the gate reads from either side. The text
+-- can never overflow: TextScaled shrinks it to the 400x60 canvas.
+local function addGateBanner(beam: BasePart, text: string, color: Color3)
+	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+		local surface = Instance.new("SurfaceGui")
+		surface.Name = "GateBanner"
+		surface.Face = face
+		surface.CanvasSize = Vector2.new(400, 60)
+		surface.AlwaysOnTop = false
+		surface.Adornee = beam
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.new(1, 0, 1, 0)
+		label.BackgroundTransparency = 1
+		label.Text = text
+		label.TextColor3 = color
+		label.Font = Enum.Font.LuckiestGuy
+		label.TextScaled = true
+		label.TextStrokeColor3 = Color3.fromRGB(20, 16, 16)
+		label.TextStrokeTransparency = 0.1
+		label.Parent = surface
+		surface.Parent = beam
+	end
 end
 
 -- One control console: a grey metal base, a tilted neon screen, a light
@@ -387,6 +448,51 @@ local function buildHub(folder: Instance)
 				)
 				stripe.CanCollide = false
 			end
+			-- Zone gate: two pillars with neon lamps in the area color,
+			-- plus a banner beam above the ring naming where the doorway
+			-- leads. The east gap (i == 0) leads to the airlock; the other
+			-- three open onto the outer deck. The beam hangs at y=11 in
+			-- front of the rim panel, clear of the ring's top (y=10).
+			local gateColor = if i == 0 then AREA_COLORS.airlock else AREA_COLORS.outer
+			local gateText = if i == 0 then "AIRLOCK" else "OUTER DECK"
+			for _, side in { -1, 1 } do
+				newPart("GatePillar", "Block", Vector3.new(1.2, 10, 1.2), Color3.fromRGB(140, 145, 155), doorCf * CFrame.new(side * 5.8, 5, 0), folder)
+				local lamp = newPart(
+					"GateLamp",
+					"Ball",
+					Vector3.new(1.4, 1.4, 1.4),
+					gateColor,
+					doorCf * CFrame.new(side * 5.8, 10.6, 0),
+					folder,
+					Enum.Material.Neon
+				)
+				lamp.CanCollide = false
+				local lampLight = Instance.new("PointLight")
+				lampLight.Color = gateColor
+				lampLight.Range = 14
+				lampLight.Brightness = 1.2
+				lampLight.Parent = lamp
+			end
+			local beam = newPart(
+				"GateBeam",
+				"Block",
+				Vector3.new(12, 1.8, 0.5),
+				Color3.fromRGB(30, 35, 45),
+				doorCf * CFrame.new(0, 11, -1.2),
+				folder
+			)
+			beam.CanCollide = false
+			local beamTrim = newPart(
+				"GateBeamTrim",
+				"Block",
+				Vector3.new(12, 0.3, 0.6),
+				gateColor,
+				doorCf * CFrame.new(0, 10, -1.2),
+				folder,
+				Enum.Material.Neon
+			)
+			beamTrim.CanCollide = false
+			addGateBanner(beam, gateText, gateColor)
 		else
 			local panelPos = Vector3.new(math.cos(angle) * 75, 5, math.sin(angle) * 75)
 			local panelCf = CFrame.new(panelPos, Vector3.new(0, 5, 0))
@@ -822,11 +928,15 @@ local function buildOneModule(folder: Instance, index: number): any
 	local ventPos = faceHub:PointToWorldSpace(Vector3.new(-10, 4.5, -14.8))
 	newPart("ModuleVent", "Block", Vector3.new(4, 2, 1), Color3.fromRGB(70, 75, 85), CFrame.new(ventPos, center), moduleFolder)
 
-	-- Entrance frame: two accent neon posts at the front corners.
+	-- Entrance frame: two accent neon posts at the front corners, each
+	-- topped with a glowing lamp ball.
 	for _, side in { -1, 1 } do
 		local postPos = faceHub:PointToWorldSpace(Vector3.new(side * 15.5, 3, 15.5))
 		local post = newPart(`Module{index}EntrancePost`, "Block", Vector3.new(0.8, 6, 0.8), accent, CFrame.new(postPos), moduleFolder, Enum.Material.Neon)
 		post.CanCollide = false
+		local lampPos = faceHub:PointToWorldSpace(Vector3.new(side * 15.5, 6.5, 15.5))
+		local lamp = newPart(`Module{index}EntranceLamp`, "Ball", Vector3.new(1.2, 1.2, 1.2), accent, CFrame.new(lampPos), moduleFolder, Enum.Material.Neon)
+		lamp.CanCollide = false
 	end
 
 	-- Shield dome: invisible until the module locks or a storm hits.
@@ -834,35 +944,62 @@ local function buildOneModule(folder: Instance, index: number): any
 	dome.CanCollide = false
 	dome.CanQuery = false
 
-	-- Eight habitat pods in a 2 x 4 grid.
+	-- Eight habitat pods in a 2 x 4 grid, TIERED: the back row (local
+	-- z = -4, farthest from the entrance) sits on a 1.5-stud riser so
+	-- every docked brainrot is visible from the entrance. podPositions
+	-- carries the raised Y, so GameService docks onto the riser with no
+	-- code change (its dock math adds 0.7 + rest height on top).
 	local podPositions: { Vector3 } = {}
 	local podIndex = 0
 	for _, row in { -4, 4 } do
 		for _, col in { -6, -2, 2, 6 } do
 			podIndex += 1
 			local podPos = faceHub:PointToWorldSpace(Vector3.new(col, 0, row))
-			table.insert(podPositions, podPos)
+			local raise = if row == -4 then 1.5 else 0
+			local podBase = podPos + Vector3.new(0, raise, 0)
+			table.insert(podPositions, podBase)
+			if raise > 0 then
+				newPart(
+					`Pod{podIndex}Riser`,
+					"Block",
+					Vector3.new(4.6, 1.5, 4.6),
+					Color3.fromRGB(120, 125, 135),
+					CFrame.new(podPos + Vector3.new(0, 0.75, 0)),
+					moduleFolder
+				)
+				local tierEdgePos = faceHub:PointToWorldSpace(Vector3.new(col, 0.75, row + 2.4))
+				local tierEdge = newPart(
+					`Pod{podIndex}TierEdge`,
+					"Block",
+					Vector3.new(4.8, 0.3, 0.3),
+					accent,
+					CFrame.new(tierEdgePos, center),
+					moduleFolder,
+					Enum.Material.Neon
+				)
+				tierEdge.CanCollide = false
+			end
 			local platform = newPart(
 				`Pod{podIndex}Platform`,
 				"Cylinder",
 				Vector3.new(0.7, 4.6, 4.6),
 				Color3.fromRGB(140, 145, 155),
-				CFrame.new(podPos + Vector3.new(0, 0.35, 0)),
+				CFrame.new(podBase + Vector3.new(0, 0.35, 0)),
 				moduleFolder
 			)
-			platform.CFrame = CFrame.new(podPos + Vector3.new(0, 0.35, 0)) * CFrame.Angles(0, 0, math.rad(90))
+			platform.CFrame = CFrame.new(podBase + Vector3.new(0, 0.35, 0)) * CFrame.Angles(0, 0, math.rad(90))
 			local glow = newPart(
 				`Pod{podIndex}Glow`,
 				"Cylinder",
 				Vector3.new(0.25, 5.0, 5.0),
 				accent,
-				CFrame.new(podPos + Vector3.new(0, 0.75, 0)),
+				CFrame.new(podBase + Vector3.new(0, 0.75, 0)),
 				moduleFolder,
 				Enum.Material.Neon
 			)
-			glow.CFrame = CFrame.new(podPos + Vector3.new(0, 0.75, 0)) * CFrame.Angles(0, 0, math.rad(90))
+			glow.CFrame = CFrame.new(podBase + Vector3.new(0, 0.75, 0)) * CFrame.Angles(0, 0, math.rad(90))
 			glow.CanCollide = false
-			local glass = newPart(`Pod{podIndex}Glass`, "Ball", Vector3.new(5.2, 4.6, 5.2), Color3.fromRGB(170, 220, 255), CFrame.new(podPos + Vector3.new(0, 2.6, 0)), moduleFolder, Enum.Material.Glass, 0.78)
+			local glass = newPart(`Pod{podIndex}Glass`, "Ball", Vector3.new(5.2, 4.6, 5.2), Color3.fromRGB(170, 220, 255), CFrame.new(podBase + Vector3.new(0, 2.6, 0)), moduleFolder, Enum.Material.Glass, 0.78)
 			glass.CanCollide = false
 		end
 	end
@@ -923,6 +1060,33 @@ local function buildGarden(folder: Instance)
 		light.Brightness = 1.2
 		light.Parent = lamp
 	end
+	-- Colorful space flowers between the planters: glowing Neon blooms
+	-- in pink, cyan and gold, so the garden reads as the station's
+	-- brightest patch of color.
+	local flowerRng = Random.new(77)
+	local flowerColors = {
+		Color3.fromRGB(255, 120, 200),
+		Color3.fromRGB(120, 220, 255),
+		Color3.fromRGB(255, 215, 60),
+		Color3.fromRGB(200, 140, 255),
+	} :: { Color3 }
+	for _ = 1, 12 do
+		local angle = flowerRng:NextNumber() * math.pi * 2
+		local radius = 4 + flowerRng:NextNumber() * 12
+		local flowerPos = gardenCenter + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+		local stem = newPart("FlowerStem", "Cylinder", Vector3.new(1.2, 0.18, 0.18), Color3.fromRGB(60, 160, 70), CFrame.new(flowerPos + Vector3.new(0, 0.6, 0)), gardenFolder)
+		stem.CFrame = CFrame.new(flowerPos + Vector3.new(0, 0.6, 0)) * CFrame.Angles(0, 0, math.rad(90))
+		local bloom = newPart(
+			"FlowerBloom",
+			"Ball",
+			Vector3.new(0.9, 0.9, 0.9),
+			flowerColors[flowerRng:NextInteger(1, #flowerColors)],
+			CFrame.new(flowerPos + Vector3.new(0, 1.5, 0)),
+			gardenFolder,
+			Enum.Material.Neon
+		)
+		bloom.CanCollide = false
+	end
 	local tank = newPart("WaterTank", "Cylinder", Vector3.new(5, 3, 3), Color3.fromRGB(140, 200, 255), CFrame.new(gardenCenter + Vector3.new(0, 2.5, 12)), gardenFolder, Enum.Material.Glass, 0.3)
 	tank.CFrame = CFrame.new(gardenCenter + Vector3.new(0, 2.5, 12)) * CFrame.Angles(0, 0, math.rad(90))
 
@@ -941,9 +1105,40 @@ local function buildAirlock(folder: Instance)
 		end
 		newPart("AirlockWall", "Block", size, Color3.fromRGB(225, 232, 245), CFrame.new(center + offset), airlockFolder)
 	end
-	-- The round outer door ZORK sneaks through.
+	-- The round outer door ZORK sneaks through, framed by a hazard ring
+	-- and flanked by two neon lamp pillars — the airlock's own zone gate.
 	local door = newPart("AirlockDoor", "Cylinder", Vector3.new(0.8, 7, 7), Color3.fromRGB(255, 150, 60), CFrame.new(center + Vector3.new(9.2, 3.5, 0)), airlockFolder, Enum.Material.Neon)
 	door.CFrame = CFrame.new(center + Vector3.new(9.2, 3.5, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	for s = 0, 11 do
+		local phi = (s / 12) * math.pi * 2
+		local segment = newPart(
+			"AirlockDoorRing",
+			"Block",
+			Vector3.new(1.2, 2.2, 1.0),
+			if s % 2 == 0 then Color3.fromRGB(255, 200, 40) else Color3.fromRGB(30, 30, 35),
+			CFrame.new(center + Vector3.new(9.2, 3.5 + math.sin(phi) * 4.2, math.cos(phi) * 4.2)) * CFrame.Angles(phi, 0, 0),
+			airlockFolder
+		)
+		segment.CanCollide = false
+	end
+	for _, side in { -1, 1 } do
+		newPart("AirlockPillar", "Block", Vector3.new(1.2, 8, 1.2), Color3.fromRGB(140, 145, 155), CFrame.new(center + Vector3.new(8.5, 4, side * 6.5)), airlockFolder)
+		local lamp = newPart(
+			"AirlockLamp",
+			"Ball",
+			Vector3.new(1.4, 1.4, 1.4),
+			AREA_COLORS.airlock,
+			CFrame.new(center + Vector3.new(8.5, 8.6, side * 6.5)),
+			airlockFolder,
+			Enum.Material.Neon
+		)
+		lamp.CanCollide = false
+		local lampLight = Instance.new("PointLight")
+		lampLight.Color = AREA_COLORS.airlock
+		lampLight.Range = 14
+		lampLight.Brightness = 1.2
+		lampLight.Parent = lamp
+	end
 
 	-- Supply crates stacked by the door — the delivery drone's cargo, and a
 	-- reason for the airlock to exist besides ZORK's raids.
@@ -995,6 +1190,13 @@ local function buildAirlock(folder: Instance)
 	addSign(airlockFolder, center + Vector3.new(-4, 0, 10), "AIRLOCK", "ZORK the Snatcher sneaks in here...", Color3.fromRGB(255, 150, 90))
 end
 
+-- The showcase stage behind the title screen: a low stage platform with a
+-- gold neon edge, six pedestals that CLIMB by rarity (Common low, Secret
+-- high), each with a neon ring + PointLight + vertical light beam in its
+-- rarity color and a plaque naming the rarity; chasing marquee bulbs along
+-- the stage's front edge (animated by TitleController); a 4-color confetti
+-- emitter above the stage; and a big BRAINROT ORBIT title board behind it
+-- all, high enough (y 5.5-12.5) that no pedestal label can cover it.
 local function buildTitlePedestals(folder: Instance)
 	local pedestalFolder = newFolder("TitlePedestals", folder)
 	local showcase = {
@@ -1005,18 +1207,192 @@ local function buildTitlePedestals(folder: Instance)
 		{ "Pulsar Panda", "Diamond" },
 		{ "Big Bang Burrito", "Cosmic" },
 	} :: { { string } }
+	local heights = { 1.2, 1.5, 1.9, 2.4, 2.9, 3.5 } :: { number }
+
+	-- Stage platform + gold neon front edge.
+	newPart("StagePlatform", "Block", Vector3.new(32, 1, 10), Color3.fromRGB(70, 75, 85), CFrame.new(0, 0.5, -14), pedestalFolder)
+	local stageEdge = newPart("StageEdge", "Block", Vector3.new(32, 0.3, 0.3), Color3.fromRGB(255, 215, 60), CFrame.new(0, 1.05, -9), pedestalFolder, Enum.Material.Neon)
+	stageEdge.CanCollide = false
+
 	for i, entry in showcase do
 		local x = -12.5 + (i - 1) * 5
+		local height = heights[i]
 		local pedestalPos = Vector3.new(x, 0, -14)
-		local pedestal = newPart(`Pedestal{i}`, "Cylinder", Vector3.new(1.4, 3.6, 3.6), Color3.fromRGB(210, 220, 235), CFrame.new(pedestalPos + Vector3.new(0, 0.7, 0)), pedestalFolder)
-		pedestal.CFrame = CFrame.new(pedestalPos + Vector3.new(0, 0.7, 0)) * CFrame.Angles(0, 0, math.rad(90))
-		local trim = newPart(`Pedestal{i}Trim`, "Cylinder", Vector3.new(0.3, 4.0, 4.0), Color3.fromRGB(255, 170, 60), CFrame.new(pedestalPos + Vector3.new(0, 1.5, 0)), pedestalFolder, Enum.Material.Neon)
-		trim.CFrame = CFrame.new(pedestalPos + Vector3.new(0, 1.5, 0)) * CFrame.Angles(0, 0, math.rad(90))
+		local species = BrainrotData.getSpecies(entry[1])
+		local rarityColor = Color3.fromRGB(200, 200, 210)
+		local rarityName = "Common"
+		if species then
+			rarityColor = BrainrotData.RARITY_COLORS[species.rarity]
+			rarityName = species.rarity
+		end
+		local pedestal = newPart(`Pedestal{i}`, "Cylinder", Vector3.new(height, 3.6, 3.6), Color3.fromRGB(210, 220, 235), CFrame.new(pedestalPos + Vector3.new(0, 1 + height / 2, 0)), pedestalFolder)
+		pedestal.CFrame = CFrame.new(pedestalPos + Vector3.new(0, 1 + height / 2, 0)) * CFrame.Angles(0, 0, math.rad(90))
+		local trim = newPart(
+			`Pedestal{i}Trim`,
+			"Cylinder",
+			Vector3.new(0.3, 4.0, 4.0),
+			rarityColor,
+			CFrame.new(pedestalPos + Vector3.new(0, 1 + height, 0)),
+			pedestalFolder,
+			Enum.Material.Neon
+		)
+		trim.CFrame = CFrame.new(pedestalPos + Vector3.new(0, 1 + height, 0)) * CFrame.Angles(0, 0, math.rad(90))
+		trim.CanCollide = false
+		local light = Instance.new("PointLight")
+		light.Color = rarityColor
+		light.Range = 10
+		light.Brightness = 1.5
+		light.Parent = trim
+		-- Vertical light beam in the rarity color, rising from the pedestal.
+		-- 8 studs tall: the tallest pedestal's beam tops out at y=12.5,
+		-- clear of the ceiling at y=14.
+		local beam = newPart(
+			`Pedestal{i}Beam`,
+			"Cylinder",
+			Vector3.new(8, 0.5, 0.5),
+			rarityColor,
+			CFrame.new(pedestalPos + Vector3.new(0, 1 + height + 4, 0)),
+			pedestalFolder,
+			Enum.Material.Neon,
+			0.55
+		)
+		beam.CFrame = CFrame.new(pedestalPos + Vector3.new(0, 1 + height + 4, 0)) * CFrame.Angles(0, 0, math.rad(90))
+		beam.CanCollide = false
+		beam.CanQuery = false
+		-- Plaque naming the rarity, facing the spawn/camera (+Z).
+		local plaque = newPart(
+			`Pedestal{i}Plaque`,
+			"Block",
+			Vector3.new(3.4, 1.2, 0.3),
+			Color3.fromRGB(30, 35, 45),
+			CFrame.new(pedestalPos + Vector3.new(0, 1.6, 2.6)) * CFrame.Angles(0, math.pi, 0),
+			pedestalFolder
+		)
+		plaque.CanCollide = false
+		local plaqueGui = Instance.new("SurfaceGui")
+		plaqueGui.Name = "PlaqueText"
+		plaqueGui.Face = Enum.NormalId.Front
+		plaqueGui.CanvasSize = Vector2.new(200, 60)
+		plaqueGui.Adornee = plaque
+		local plaqueLabel = Instance.new("TextLabel")
+		plaqueLabel.Size = UDim2.new(1, 0, 1, 0)
+		plaqueLabel.BackgroundTransparency = 1
+		plaqueLabel.Text = string.upper(rarityName)
+		plaqueLabel.TextColor3 = rarityColor
+		plaqueLabel.Font = Enum.Font.LuckiestGuy
+		plaqueLabel.TextScaled = true
+		plaqueLabel.Parent = plaqueGui
+		plaqueGui.Parent = plaque
 		local model = BrainrotFactory.buildBrainrotModel(entry[1], entry[2], `pedestal-{i}`)
-		model:SetAttribute("Animate", "Bob")
-		model:PivotTo(CFrame.new(pedestalPos + Vector3.new(0, 1.6 + BrainrotFactory.getRestHeight(entry[1]), 0)))
+		model:SetAttribute("Animate", "Spin")
+		model:PivotTo(CFrame.new(pedestalPos + Vector3.new(0, 1 + height + 0.2 + BrainrotFactory.getRestHeight(entry[1]), 0)))
 		model.Parent = pedestalFolder
 	end
+
+	-- Marquee bulbs along the stage's front edge, cycling 4 colors. The
+	-- client chases them (every third bulb lit, 8 steps/second).
+	local bulbColors = {
+		Color3.fromRGB(255, 215, 60),
+		Color3.fromRGB(60, 220, 220),
+		Color3.fromRGB(255, 120, 200),
+		Color3.fromRGB(96, 214, 84),
+	} :: { Color3 }
+	for i = 0, 20 do
+		local bulb = newPart(
+			"MarqueeBulb",
+			"Ball",
+			Vector3.new(0.55, 0.55, 0.55),
+			bulbColors[(i % 4) + 1],
+			CFrame.new(-15 + i * 1.5, 1.3, -9.2),
+			pedestalFolder,
+			Enum.Material.Neon
+		)
+		bulb.CanCollide = false
+		bulb:SetAttribute("BulbIndex", i + 1)
+	end
+
+	-- Confetti emitter above the stage: 4 colors, falling gently.
+	local confettiAnchor = newPart("ConfettiAnchor", "Block", Vector3.new(1, 1, 1), Color3.fromRGB(255, 255, 255), CFrame.new(0, 12, -14), pedestalFolder, Enum.Material.SmoothPlastic, 1)
+	confettiAnchor.CanCollide = false
+	confettiAnchor.CanQuery = false
+	local confetti = Instance.new("ParticleEmitter")
+	confetti.Name = "StageConfetti"
+	confetti.Enabled = true
+	confetti.Rate = 30
+	confetti.Lifetime = NumberRange.new(2, 4)
+	confetti.Speed = NumberRange.new(2, 5)
+	confetti.SpreadAngle = Vector2.new(90, 90)
+	confetti.EmissionDirection = Enum.NormalId.Bottom
+	confetti.Acceleration = Vector3.new(0, -6, 0)
+	confetti.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 215, 60)),
+		ColorSequenceKeypoint.new(0.33, Color3.fromRGB(60, 220, 220)),
+		ColorSequenceKeypoint.new(0.66, Color3.fromRGB(255, 120, 200)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(96, 214, 84)),
+	})
+	confetti.Size = NumberSequence.new(0.5)
+	confetti.Transparency = NumberSequence.new(0.1, 1)
+	confetti.Parent = confettiAnchor
+
+	-- The big title board behind the stage, high above the pedestal
+	-- labels: gold LuckiestGuy name + cyan tagline on a dark board with a
+	-- neon gold frame. It hangs over the north walkway (bottom edge y=5.5
+	-- clears every head).
+	local board = newPart(
+		"TitleBoard",
+		"Block",
+		Vector3.new(26, 7, 0.6),
+		Color3.fromRGB(25, 30, 45),
+		CFrame.new(0, 9, -26) * CFrame.Angles(0, math.pi, 0),
+		pedestalFolder
+	)
+	board.CanCollide = false
+	for _, offset in { Vector3.new(0, 3.65, 0), Vector3.new(0, -3.65, 0) } do
+		local frameStrip = newPart(
+			"TitleBoardFrame",
+			"Block",
+			Vector3.new(26.4, 0.3, 0.7),
+			Color3.fromRGB(255, 215, 60),
+			CFrame.new(Vector3.new(0, 9, -26) + offset),
+			pedestalFolder,
+			Enum.Material.Neon
+		)
+		frameStrip.CanCollide = false
+	end
+	for _, side in { -1, 1 } do
+		newPart("TitleBoardPole", "Cylinder", Vector3.new(5.5, 0.4, 0.4), Color3.fromRGB(120, 130, 150), CFrame.new(side * 12, 2.75, -26), pedestalFolder).CFrame =
+			CFrame.new(side * 12, 2.75, -26) * CFrame.Angles(0, 0, math.rad(90))
+	end
+	local boardLight = Instance.new("PointLight")
+	boardLight.Color = Color3.fromRGB(255, 240, 210)
+	boardLight.Range = 30
+	boardLight.Brightness = 1.2
+	boardLight.Parent = board
+	local boardGui = Instance.new("SurfaceGui")
+	boardGui.Name = "TitleBoardText"
+	boardGui.Face = Enum.NormalId.Front
+	boardGui.CanvasSize = Vector2.new(800, 220)
+	boardGui.Adornee = board
+	local boardName = Instance.new("TextLabel")
+	boardName.Size = UDim2.new(1, 0, 0.65, 0)
+	boardName.BackgroundTransparency = 1
+	boardName.Text = "BRAINROT ORBIT"
+	boardName.TextColor3 = Color3.fromRGB(255, 215, 60)
+	boardName.Font = Enum.Font.LuckiestGuy
+	boardName.TextScaled = true
+	boardName.TextStrokeColor3 = Color3.fromRGB(20, 16, 16)
+	boardName.TextStrokeTransparency = 0.1
+	boardName.Parent = boardGui
+	local boardTag = Instance.new("TextLabel")
+	boardTag.Position = UDim2.new(0, 0, 0.65, 0)
+	boardTag.Size = UDim2.new(1, 0, 0.35, 0)
+	boardTag.BackgroundTransparency = 1
+	boardTag.Text = "CATCH  •  DOCK  •  GET RICH"
+	boardTag.TextColor3 = Color3.fromRGB(120, 220, 255)
+	boardTag.Font = Enum.Font.FredokaOne
+	boardTag.TextScaled = true
+	boardTag.Parent = boardGui
+	boardGui.Parent = board
 end
 
 local function buildSpaceBackdrop(folder: Instance)
@@ -1052,13 +1428,13 @@ local function buildSpaceBackdrop(folder: Instance)
 		star.CanQuery = false
 	end
 
-	-- Nebulae: ten huge faint neon clouds, far out, for color in the dark.
+	-- Nebulae: fifteen huge faint neon clouds, far out, for color in the dark.
 	local nebulaColors = {
 		Color3.fromRGB(150, 80, 255),
 		Color3.fromRGB(80, 220, 220),
 		Color3.fromRGB(255, 120, 200),
 	} :: { Color3 }
-	for _ = 1, 10 do
+	for _ = 1, 15 do
 		local theta = starRng:NextNumber() * math.pi * 2
 		local y = starRng:NextNumber() * 500 - 100
 		local radius = 950 + starRng:NextNumber() * 100
@@ -1105,6 +1481,48 @@ local function buildSpaceBackdrop(folder: Instance)
 	local moon = newPart("Moon", "Ball", Vector3.new(16, 16, 16), Color3.fromRGB(180, 180, 190), CFrame.new(620, 230, -860), spaceFolder)
 	moon.CanCollide = false
 	moon.CanQuery = false
+
+	-- A second, purple planet on the other side of the sky, with its own
+	-- glowing atmosphere shell — the view out the south windows gets a
+	-- landmark too.
+	local planet2Center = Vector3.new(-800, 250, -600)
+	local planet2 = newPart("Planet2", "Ball", Vector3.new(40, 40, 40), Color3.fromRGB(150, 90, 220), CFrame.new(planet2Center), spaceFolder)
+	planet2.CanCollide = false
+	planet2.CanQuery = false
+	local atmosphere2 = newPart(
+		"Planet2Atmosphere",
+		"Ball",
+		Vector3.new(45, 45, 45),
+		Color3.fromRGB(220, 170, 255),
+		CFrame.new(planet2Center),
+		spaceFolder,
+		Enum.Material.Neon,
+		0.7
+	)
+	atmosphere2.CanCollide = false
+	atmosphere2.CanQuery = false
+
+	-- A comet: a bright head with a tail of fading balls, arcing across
+	-- the northern sky.
+	local cometHead = Vector3.new(-300, 400, -900)
+	local cometDir = Vector3.new(0.5, -0.25, 0.3)
+	local cometHeadPart = newPart("CometHead", "Ball", Vector3.new(6, 6, 6), Color3.fromRGB(255, 250, 220), CFrame.new(cometHead), spaceFolder, Enum.Material.Neon)
+	cometHeadPart.CanCollide = false
+	cometHeadPart.CanQuery = false
+	for i = 1, 8 do
+		local tailPart = newPart(
+			"CometTail",
+			"Ball",
+			Vector3.new(6 - i * 0.6, 6 - i * 0.6, 6 - i * 0.6),
+			Color3.fromRGB(170, 220, 255),
+			CFrame.new(cometHead - cometDir * (i * 12)),
+			spaceFolder,
+			Enum.Material.Neon,
+			0.15 + i * 0.09
+		)
+		tailPart.CanCollide = false
+		tailPart.CanQuery = false
+	end
 
 	-- Two satellites drifting near the station.
 	local satelliteSpots = { Vector3.new(-210, 130, -320), Vector3.new(260, 160, 260) }
@@ -1189,6 +1607,228 @@ local function buildCrewAndRobot(folder: Instance)
 	}
 end
 
+-- Dense festive props, scattered with a fixed seed and placement rules:
+-- clear of consoles, lamps, the garden, the stage, the signs, the spawn
+-- pad, the modules and the airlock; at least 4 studs between props. Space
+-- plants, glowing crystals, candy crates, barrels and wall banners — no
+-- wide empty floor is left anywhere in the station.
+local function buildProps(folder: Instance)
+	local propsFolder = newFolder("Props", folder)
+	local propRng = Random.new(11)
+	local candyColors = {
+		Color3.fromRGB(96, 214, 84),
+		Color3.fromRGB(64, 168, 255),
+		Color3.fromRGB(255, 88, 82),
+		Color3.fromRGB(176, 104, 255),
+		Color3.fromRGB(255, 156, 44),
+		Color3.fromRGB(255, 206, 54),
+		Color3.fromRGB(60, 220, 220),
+		Color3.fromRGB(255, 120, 190),
+	} :: { Color3 }
+	local placed: { Vector3 } = {}
+
+	local function clearOf(x: number, z: number, radius: number): boolean
+		-- Fixed keep-out circles: center x/z + clearance radius.
+		local keepOut = {
+			{ 0, 0, 9 }, -- spawn pad
+			{ 0, -14, 17 }, -- showcase stage
+			{ -42, -38, 20 }, -- garden
+			{ 0, 24, 4 }, -- deck sign
+			{ 84, 10, 4 }, -- airlock sign
+			{ -42, -18, 4 }, -- garden sign
+		} :: { { number } }
+		for _, circle in keepOut do
+			local dx = x - circle[1]
+			local dz = z - circle[2]
+			if math.sqrt(dx * dx + dz * dz) < circle[3] + radius then
+				return false
+			end
+		end
+		-- Consoles (radius 40) and lamps (radius 55).
+		for _, angleDeg in { 45, 135, 225, 315, 0, 180 } do
+			local angle = math.rad(angleDeg)
+			local dx = x - math.cos(angle) * 40
+			local dz = z - math.sin(angle) * 40
+			if math.sqrt(dx * dx + dz * dz) < 5 + radius then
+				return false
+			end
+		end
+		for i = 0, 7 do
+			local angle = (i / 8) * math.pi * 2 + math.pi / 8
+			local dx = x - math.cos(angle) * 55
+			local dz = z - math.sin(angle) * 55
+			if math.sqrt(dx * dx + dz * dz) < 3 + radius then
+				return false
+			end
+		end
+		-- Modules (outer deck props).
+		for i = 1, MODULE_COUNT do
+			local angle = math.rad(22.5 + (i - 1) * 45)
+			local dx = x - math.cos(angle) * MODULE_RADIUS
+			local dz = z - math.sin(angle) * MODULE_RADIUS
+			if math.sqrt(dx * dx + dz * dz) < 19 + radius then
+				return false
+			end
+		end
+		-- The airlock (outer deck props).
+		if math.sqrt((x - 88) * (x - 88) + z * z) < 12 + radius then
+			return false
+		end
+		-- Other props: at least 4 studs apart.
+		for _, other in placed do
+			local dx = x - other.X
+			local dz = z - other.Z
+			if math.sqrt(dx * dx + dz * dz) < 4 + radius then
+				return false
+			end
+		end
+		return true
+	end
+
+	local function findSpot(minRadius: number, maxRadius: number, radius: number): Vector3?
+		for _ = 1, 40 do
+			local angle = propRng:NextNumber() * math.pi * 2
+			local distance = minRadius + propRng:NextNumber() * (maxRadius - minRadius)
+			local x = math.cos(angle) * distance
+			local z = math.sin(angle) * distance
+			if clearOf(x, z, radius) then
+				local spot = Vector3.new(x, 0, z)
+				table.insert(placed, spot)
+				return spot
+			end
+		end
+		return nil
+	end
+
+	local function buildSpacePlant(pos: Vector3, withLight: boolean)
+		local pot = newPart("SpacePlantPot", "Cylinder", Vector3.new(1.2, 1.6, 1.6), Color3.fromRGB(200, 120, 80), CFrame.new(pos + Vector3.new(0, 0.6, 0)), propsFolder)
+		pot.CFrame = CFrame.new(pos + Vector3.new(0, 0.6, 0)) * CFrame.Angles(0, 0, math.rad(90))
+		local stem = newPart("SpacePlantStem", "Cylinder", Vector3.new(1.6, 0.25, 0.25), Color3.fromRGB(60, 160, 70), CFrame.new(pos + Vector3.new(0, 1.9, 0)), propsFolder)
+		stem.CFrame = CFrame.new(pos + Vector3.new(0, 1.9, 0)) * CFrame.Angles(0, 0, math.rad(90))
+		local leafColor = candyColors[propRng:NextInteger(1, #candyColors)]
+		local topLeaf: BasePart? = nil
+		for _, offset in { Vector3.new(0, 2.9, 0), Vector3.new(0.7, 2.5, 0.3), Vector3.new(-0.7, 2.5, -0.3) } do
+			local leaf = newPart("SpacePlantLeaf", "Ball", Vector3.new(1.1, 1.1, 1.1), leafColor, CFrame.new(pos + offset), propsFolder, Enum.Material.Neon)
+			leaf.CanCollide = false
+			if not topLeaf then
+				topLeaf = leaf
+			end
+		end
+		if withLight and topLeaf then
+			local light = Instance.new("PointLight")
+			light.Color = leafColor
+			light.Range = 8
+			light.Brightness = 1
+			light.Parent = topLeaf
+		end
+	end
+
+	local function buildCrystal(pos: Vector3, withLight: boolean)
+		local crystalColor = candyColors[propRng:NextInteger(1, #candyColors)]
+		local shards = propRng:NextInteger(2, 3)
+		local tallest: BasePart? = nil
+		local tallestHeight = 0
+		for i = 1, shards do
+			local height = 1.5 + propRng:NextNumber() * 2
+			local shard = newPart(
+				"Crystal",
+				"Wedge",
+				Vector3.new(1.0, height, 1.0),
+				crystalColor,
+				CFrame.new(pos + Vector3.new((i - 2) * 0.9, height / 2, (i % 2) * 0.6 - 0.3)) * CFrame.Angles(0, propRng:NextNumber() * math.pi * 2, 0),
+				propsFolder,
+				Enum.Material.Neon
+			)
+			shard.CanCollide = false
+			if height > tallestHeight then
+				tallestHeight = height
+				tallest = shard
+			end
+		end
+		if withLight and tallest then
+			local light = Instance.new("PointLight")
+			light.Color = crystalColor
+			light.Range = 9
+			light.Brightness = 1
+			light.Parent = tallest
+		end
+	end
+
+	local function buildCrate(pos: Vector3)
+		local color = candyColors[propRng:NextInteger(1, #candyColors)]
+		newPart("PropCrate", "Block", Vector3.new(2, 2, 2), color, CFrame.new(pos + Vector3.new(0, 1, 0)) * CFrame.Angles(0, propRng:NextNumber() * math.pi * 2, 0), propsFolder)
+	end
+
+	local function buildBarrel(pos: Vector3)
+		local color = candyColors[propRng:NextInteger(1, #candyColors)]
+		local barrel = newPart("PropBarrel", "Cylinder", Vector3.new(2.2, 1.6, 1.6), color, CFrame.new(pos + Vector3.new(0, 1.1, 0)), propsFolder)
+		barrel.CFrame = CFrame.new(pos + Vector3.new(0, 1.1, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	end
+
+	-- Banners along the hub wall, between the door gaps.
+	for i = 1, 8 do
+		local angle = math.rad(22.5 + (i - 1) * 45)
+		local base = Vector3.new(math.cos(angle) * 70, 0, math.sin(angle) * 70)
+		local pole = newPart("BannerPole", "Cylinder", Vector3.new(6, 0.3, 0.3), Color3.fromRGB(140, 150, 170), CFrame.new(base + Vector3.new(0, 3, 0)), propsFolder)
+		pole.CFrame = CFrame.new(base + Vector3.new(0, 3, 0)) * CFrame.Angles(0, 0, math.rad(90))
+		local flag = newPart(
+			"BannerFlag",
+			"Block",
+			Vector3.new(2.5, 1.6, 0.2),
+			candyColors[i],
+			CFrame.new(base + Vector3.new(0, 5, 0), Vector3.new(0, 5, 0)),
+			propsFolder,
+			Enum.Material.Neon
+		)
+		flag.CanCollide = false
+	end
+
+	-- Hub scatter: plants, crystals, crates, barrels.
+	for i = 1, 20 do
+		local spot = findSpot(12, 66, 1.5)
+		if spot then
+			buildSpacePlant(spot, i % 4 == 0)
+		end
+	end
+	for i = 1, 12 do
+		local spot = findSpot(12, 66, 1.5)
+		if spot then
+			buildCrystal(spot, i % 3 == 0)
+		end
+	end
+	for _ = 1, 10 do
+		local spot = findSpot(12, 66, 1.5)
+		if spot then
+			buildCrate(spot)
+		end
+	end
+	for _ = 1, 8 do
+		local spot = findSpot(12, 66, 1.2)
+		if spot then
+			buildBarrel(spot)
+		end
+	end
+	-- Outer deck scatter: crates, barrels and crystals on the exposed ring.
+	for _ = 1, 6 do
+		local spot = findSpot(80, 108, 1.5)
+		if spot then
+			buildCrate(spot)
+		end
+	end
+	for _ = 1, 4 do
+		local spot = findSpot(80, 108, 1.2)
+		if spot then
+			buildBarrel(spot)
+		end
+	end
+	for _ = 1, 2 do
+		local spot = findSpot(80, 108, 1.5)
+		if spot then
+			buildCrystal(spot, true)
+		end
+	end
+end
+
 -- Builds the entire station. Called once by Main.server.luau before any
 -- player character loads, so nobody ever spawns into an empty void.
 function WorldBuilder.buildWorld()
@@ -1213,6 +1853,7 @@ function WorldBuilder.buildWorld()
 	buildTitlePedestals(folder)
 	buildSpaceBackdrop(folder)
 	buildCrewAndRobot(folder)
+	buildProps(folder)
 end
 
 -- Random spawn point for a wild brainrot: mostly the bright hub, sometimes

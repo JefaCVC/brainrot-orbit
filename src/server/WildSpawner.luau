@@ -85,20 +85,54 @@ local function rollMutation(): string
 	return "None"
 end
 
--- True when a point is at least 10 studs from every other wild brainrot,
+-- True when a point is at least 14 studs from every other wild brainrot,
 -- so wanderers spread out across the deck instead of clumping into one
--- pile with overlapping name tags.
+-- pile with overlapping name tags. 14 studs + the compact 150 px tags
+-- (MaxDistance 35) is the round 5 label fix: at the farthest tag range a
+-- tag spans ~5.7 studs on screen, so 14-stud neighbours keep ~8 studs of
+-- clear gap between their labels.
 local function isSeparated(candidate: Vector3, selfId: string?): boolean
 	for id, other in wild do
 		if id ~= selfId then
 			local otherPos = other.model:GetPivot().Position
 			local distance = (Vector3.new(candidate.X, 0, candidate.Z) - Vector3.new(otherPos.X, 0, otherPos.Z)).Magnitude
-			if distance < 10 then
+			if distance < 14 then
 				return false
 			end
 		end
 	end
 	return true
+end
+
+-- A spawn point that keeps its distance from the wilds already out: retry
+-- up to 8 times for a separated point, else take the first candidate (the
+-- wander retarget will separate it within a few seconds anyway).
+local function pickSpawnPoint(): Vector3
+	local fallback: Vector3? = nil
+	for _ = 1, 8 do
+		local candidate = WorldBuilder.getRandomWildSpawnPoint()
+		if not fallback then
+			fallback = candidate
+		end
+		if isSeparated(candidate, nil) then
+			return candidate
+		end
+	end
+	return fallback or Vector3.new(30, 0, 30)
+end
+
+local function pickMeteorPoint(): Vector3
+	local fallback: Vector3? = nil
+	for _ = 1, 8 do
+		local candidate = WorldBuilder.getRandomOuterDeckPoint()
+		if not fallback then
+			fallback = candidate
+		end
+		if isSeparated(candidate, nil) then
+			return candidate
+		end
+	end
+	return fallback or Vector3.new(90, 0, 0)
 end
 
 local function pickWanderTarget(zone: string, from: Vector3, selfId: string?): Vector3
@@ -153,7 +187,7 @@ end
 -- exposed outer deck so players must risk the open ring to grab them.
 function WildSpawner.spawnMeteorBrainrots(count: number)
 	for _ = 1, count do
-		local position = WorldBuilder.getRandomOuterDeckPoint()
+		local position = pickMeteorPoint()
 		local species = rollSpecies(true)
 		WildSpawner.spawnWildAt(position, species, nil)
 	end
@@ -260,7 +294,7 @@ local function maintainPopulation()
 		task.wait(5)
 		local missing = BrainrotData.CONFIG.wildTargetCount - WildSpawner.getCount()
 		for _ = 1, math.min(missing, 3) do
-			WildSpawner.spawnWildAt(WorldBuilder.getRandomWildSpawnPoint(), nil, nil)
+			WildSpawner.spawnWildAt(pickSpawnPoint(), nil, nil)
 		end
 	end
 end
@@ -279,7 +313,7 @@ function WildSpawner.start()
 	folder.Parent = Workspace
 	wildFolder = folder
 	for _ = 1, BrainrotData.CONFIG.wildTargetCount do
-		WildSpawner.spawnWildAt(WorldBuilder.getRandomWildSpawnPoint(), nil, nil)
+		WildSpawner.spawnWildAt(pickSpawnPoint(), nil, nil)
 	end
 	RunService.Heartbeat:Connect(onHeartbeat)
 	task.spawn(maintainPopulation)
