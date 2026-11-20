@@ -209,6 +209,10 @@ local function addSign(parent: Instance, position: Vector3, title: string, subti
 	tag.Name = "SignTag"
 	tag.Size = UDim2.new(0, 280, 0, 84)
 	tag.StudsOffset = Vector3.new(0, 5.6, 0)
+	-- Round 7: without a MaxDistance every module sign rendered from
+	-- anywhere and all eight stacked into an unreadable wall from the
+	-- station center. 60 studs shows only nearby signs.
+	tag.MaxDistance = 60
 	tag.AlwaysOnTop = false
 	tag.Adornee = pole
 	local titleLabel = Instance.new("TextLabel")
@@ -886,6 +890,10 @@ local function buildOuterDeck(folder: Instance)
 	end
 
 	addSign(folder, Vector3.new(82, 0, 0), "OUTER DECK", "Storms hit here first!", Color3.fromRGB(255, 170, 90))
+
+	-- Sector 2 (round 7): zone-gated rarities. The rarer wild brainrots
+	-- roam this far side of the deck, up to Legendary.
+	addSign(folder, Vector3.new(45, 0, 55), "SECTOR 2", "Rare aliens roam here, up to LEGENDARY", Color3.fromRGB(255, 176, 32))
 end
 
 local function buildOneModule(folder: Instance, index: number): any
@@ -1019,7 +1027,7 @@ local function buildOneModule(folder: Instance, index: number): any
 
 	-- Owner sign at the module entrance.
 	local signPos = faceHub:PointToWorldSpace(Vector3.new(0, 0, 17))
-	local signLabel = addSign(moduleFolder, signPos, `MODULE {index}`, "Unclaimed — join to claim it!", accent)
+	local signLabel = addSign(moduleFolder, signPos, `MODULE {index}`, "Unclaimed, join to claim it!", accent)
 
 	return {
 		index = index,

@@ -60,6 +60,10 @@ if tourRemote then
 			TitleController.dismiss()
 		elseif command == "openPanels" then
 			PanelsController.openPanelsForTour()
+		elseif command == "openIndex" then
+			PanelsController.openIndexForTour()
+		elseif command == "openQuests" then
+			PanelsController.openQuestsForTour()
 		elseif command == "hideTutorial" then
 			TutorialController.hide()
 		elseif command == "highlightCatch" then
@@ -77,7 +81,7 @@ local function onTitleDismissed()
 	-- the HUD is visible (a toast at startup would fade behind the title).
 	if stateRemoteMissing and not didToastMissingState then
 		didToastMissingState = true
-		HudController.showToast("Connection problem — remotes not found")
+		HudController.showToast("Connection problem - remotes not found")
 	end
 	local readyRemote = Remotes.waitFor("PlayerReady")
 	if readyRemote then

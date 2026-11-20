@@ -211,7 +211,7 @@ local function addNameTag(model: Model, body: BasePart, title: string, subtitle:
 	nameLabel.Font = Enum.Font.FredokaOne
 	nameLabel.TextScaled = true
 	nameLabel.TextWrapped = false
-	nameLabel.TextStrokeColor3 = Color3.fromRGB(58, 32, 30)
+	nameLabel.TextStrokeColor3 = Color3.fromRGB(20, 20, 24)
 	nameLabel.TextStrokeTransparency = 0.1
 	nameLabel.Parent = tag
 
@@ -226,7 +226,7 @@ local function addNameTag(model: Model, body: BasePart, title: string, subtitle:
 	subLabel.Font = Enum.Font.FredokaOne
 	subLabel.TextScaled = true
 	subLabel.TextWrapped = false
-	subLabel.TextStrokeColor3 = Color3.fromRGB(58, 32, 30)
+	subLabel.TextStrokeColor3 = Color3.fromRGB(20, 20, 24)
 	subLabel.TextStrokeTransparency = 0.1
 	subLabel.Parent = tag
 

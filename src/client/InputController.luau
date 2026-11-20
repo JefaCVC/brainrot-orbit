@@ -9,7 +9,7 @@
 --      empty pod, or steal from a rival module, whichever the player is
 --      standing next to (the prompt label always says which).
 --   L  Lock Module — raise the energy shield.
---   F  Bonk ZORK — swing the Plasma Bat at the Snatcher.
+--   F  Zap ZORK — zap the Snatcher with the Zapper (3x drives him off).
 --   Q  Drop Cargo — drop everything in the cargo bubble.
 --
 -- The client only decides WHICH remote to fire from proximity; the server
@@ -227,9 +227,9 @@ local function scanContext()
 	-- always shows something once the title is dismissed.
 	currentAction = "none"
 	if cargoCount >= cargoCapacity then
-		HudController.setPrompt("Cargo full — dock first")
+		HudController.setPrompt("Cargo full - dock first")
 	elseif nearestWildDistance then
-		HudController.setPrompt(`Nearest brainrot {math.floor(nearestWildDistance)} studs away — get closer`)
+		HudController.setPrompt(`Nearest brainrot {math.floor(nearestWildDistance)} studs away - get closer`)
 	else
 		HudController.setPrompt("No wild brainrot nearby")
 	end
@@ -260,7 +260,7 @@ local function fireRemote(name: string, ...)
 	local now = os.clock()
 	if now - lastConnectionToastAt >= 5 then
 		lastConnectionToastAt = now
-		HudController.showToast("Connection problem — can't reach the server. Rejoin if this persists.")
+		HudController.showToast("Connection problem - can't reach the server. Rejoin if this persists.")
 	end
 end
 

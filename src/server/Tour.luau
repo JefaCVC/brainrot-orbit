@@ -42,7 +42,7 @@ function Tour.showCatch(playerName: string): string
 	GameService.teleportPlayerTo(runtime.player, Vector3.new(25, 0, 25))
 	GameService.sendTourCommand(runtime.player, "hideTitle")
 	GameService.spawnWildInFront(runtime.player)
-	return `wild Bloop Blorp placed in front of {runtime.player.Name} — press E to catch`
+	return `wild Bloop Blorp placed in front of {runtime.player.Name} - press E to catch`
 end
 
 -- Screenshot 3: the solar storm — the storm goes active at once (domes
@@ -55,12 +55,12 @@ function Tour.showStorm(playerName: string): string
 	GameService.teleportPlayerTo(runtime.player, Vector3.new(0, 0, 24))
 	GameService.sendTourCommand(runtime.player, "hideTitle")
 	StormService.forceStormActive()
-	return "solar storm active — domes up, sky orange, 15s to capture"
+	return "solar storm active - domes up, sky orange, 15s to capture"
 end
 
 -- Screenshot 4: a full module — the player's pods are filled with a
 -- showcase roster (Gold, Diamond, Cosmic included), 50,000 credits, and the
--- Index + Upgrades panels open over the game.
+-- Star Chart + Upgrades panels open over the game.
 function Tour.showModule(playerName: string): string
 	local runtime = GameService.getRuntimeForPlayerName(playerName)
 	if not runtime then
@@ -74,7 +74,45 @@ function Tour.showModule(playerName: string): string
 	GameService.teleportPlayerTo(runtime.player, module.center + Vector3.new(0, 0, 10))
 	GameService.sendTourCommand(runtime.player, "hideTitle")
 	GameService.sendTourCommand(runtime.player, "openPanels")
-	return `showcase module granted to {runtime.player.Name} — Index + Upgrades open`
+	return `showcase module granted to {runtime.player.Name} - Star Chart + Upgrades open`
+end
+
+-- Star Chart shot (round 7): the showcase roster fills the module, then
+-- the Star Chart opens centered with 8 species found, ON BASE tags on the
+-- docked ones, the mutation legend and the flavor line.
+function Tour.showIndex(playerName: string): string
+	local runtime = GameService.getRuntimeForPlayerName(playerName)
+	if not runtime then
+		return "no player found"
+	end
+	if runtime.moduleIndex == 0 then
+		return "player has no module yet"
+	end
+	GameService.grantDemoModule(runtime)
+	local module = WorldBuilder.MODULES[runtime.moduleIndex]
+	GameService.teleportPlayerTo(runtime.player, module.center + Vector3.new(0, 0, 10))
+	GameService.sendTourCommand(runtime.player, "hideTitle")
+	GameService.sendTourCommand(runtime.player, "openIndex")
+	return `Star Chart open for {runtime.player.Name} - 8/30 found, ON BASE tags shown`
+end
+
+-- Quests shot (round 7): the showcase module plus partial quest progress
+-- (6/10 caught, 3/3 docked, 1500/2000 earned, 1 lock, 2 upgrades), then
+-- the Quests panel opens on the left with mixed progress and rewards.
+function Tour.showQuests(playerName: string): string
+	local runtime = GameService.getRuntimeForPlayerName(playerName)
+	if not runtime then
+		return "no player found"
+	end
+	if runtime.moduleIndex == 0 then
+		return "player has no module yet"
+	end
+	GameService.grantDemoModule(runtime)
+	local module = WorldBuilder.MODULES[runtime.moduleIndex]
+	GameService.teleportPlayerTo(runtime.player, module.center + Vector3.new(0, 0, 10))
+	GameService.sendTourCommand(runtime.player, "hideTitle")
+	GameService.sendTourCommand(runtime.player, "openQuests")
+	return `Quests panel open for {runtime.player.Name} - mixed progress, 14 quests`
 end
 
 return Tour

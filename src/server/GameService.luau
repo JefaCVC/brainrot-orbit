@@ -89,6 +89,19 @@ function GameService.refreshDomes()
 	end
 end
 
+-- True when the player is standing inside any shield dome while a storm
+-- is active: the Safe Dome pays x2 income during the storm (round 7).
+local function isStormSheltered(runtime: any): boolean
+	if not StormService.isStormActive() then
+		return false
+	end
+	local rootPosition = getRootPosition(runtime.player)
+	if not rootPosition then
+		return false
+	end
+	return WorldBuilder.isInsideAnyDome(rootPosition)
+end
+
 -- Builds the full HUD state table for one player and pushes it to them.
 function GameService.pushState(runtime: any)
 	local player = runtime.player
@@ -98,6 +111,7 @@ function GameService.pushState(runtime: any)
 	end
 	local data = runtime.profile.data
 	local goldenHour = StormService.isGoldenHour()
+	local sheltered = isStormSheltered(runtime)
 	local roster: { any } = {}
 	for podIndex = 1, BrainrotData.CONFIG.maxPods do
 		local brainrot = runtime.docked[podIndex]
@@ -120,15 +134,23 @@ function GameService.pushState(runtime: any)
 			name = brainrot.species,
 			rarity = species and species.rarity or "Common",
 			mutation = brainrot.mutation,
+			rate = brainrot.rate,
 		}
 		table.insert(cargo, entry)
 	end
 	local missionState = PlayerState.getMissionState(runtime)
+	local questStates = PlayerState.getQuestStates(runtime)
+	local questsDoneCount = 0
+	for _, questState in questStates do
+		if questState.done then
+			questsDoneCount += 1
+		end
+	end
 	local state = {
 		credits = data.credits,
-		rate = PlayerState.getIncomeRate(runtime, goldenHour),
+		rate = PlayerState.getIncomeRate(runtime, goldenHour, sheltered),
 		baseRate = PlayerState.getBaseRate(runtime),
-		multiplier = PlayerState.getMultiplier(runtime, goldenHour),
+		multiplier = PlayerState.getMultiplier(runtime, goldenHour, sheltered),
 		rebirths = data.rebirths,
 		rebirthCost = PlayerState.getRebirthCost(runtime),
 		moduleIndex = runtime.moduleIndex,
@@ -148,10 +170,14 @@ function GameService.pushState(runtime: any)
 			complete = missionState.complete,
 		},
 		missionsCompleted = data.missionsCompleted,
+		quests = questStates,
+		questsDoneCount = questsDoneCount,
+		questsTotal = #BrainrotData.QUESTS,
 		discovered = data.discovered,
 		lockSecondsLeft = PlayerState.getLockSecondsLeft(runtime),
 		lockCooldownLeft = math.max(0, runtime.lockCooldownUntil - os.clock()),
 		storm = StormService.getStormState(),
+		stormSheltered = sheltered,
 		goldenHourLeft = StormService.getGoldenHourSecondsLeft(),
 		zorkActive = ThiefService.isZorkActive(),
 	}
@@ -172,6 +198,19 @@ local function completeMissionIfReady(runtime: any, stat: string, amount: number
 	if mission then
 		PlayerState.addCredits(runtime, mission.reward, false)
 		toast(runtime.player, `MISSION COMPLETE! +{mission.reward} credits`)
+		GameService.pushState(runtime)
+	end
+end
+
+-- Pays every quest that just completed and announces each one (the HUD
+-- feed picks these lines up too). Called after any action that can move a
+-- quest stat, and on the income tick for the earn quests.
+local function completeQuestsIfReady(runtime: any)
+	local completed = PlayerState.completeQuests(runtime)
+	for _, quest in completed do
+		toast(runtime.player, `QUEST DONE: {quest.text} +${quest.reward}`)
+	end
+	if #completed > 0 then
 		GameService.pushState(runtime)
 	end
 end
@@ -236,6 +275,7 @@ local function onCatchBrainrot(player: Player)
 	fireFx(player, { kind = "burst", position = removed.model:GetPivot().Position, color = burstColor })
 	toast(player, `Caught {removed.species}! Carry it home to your pods.`)
 	completeMissionIfReady(runtime, "caught", 1)
+	completeQuestsIfReady(runtime)
 	GameService.pushState(runtime)
 end
 
@@ -247,7 +287,7 @@ local function onDockBrainrot(player: Player)
 		return
 	end
 	if #runtime.cargo == 0 then
-		toast(player, "Cargo empty — catch a brainrot first!")
+		toast(player, "Cargo empty, catch a brainrot first!")
 		return
 	end
 	local rootPosition = getRootPosition(player)
@@ -287,8 +327,9 @@ local function onDockBrainrot(player: Player)
 		PlayerState.destroyBubble(runtime)
 	end
 	fireFx(player, { kind = "dock", position = podPos + Vector3.new(0, 3, 0), rate = brainrot.rate, name = brainrot.species })
-	toast(player, `Docked {brainrot.species} — earning ${brainrot.rate}/s!`)
+	toast(player, `Docked {brainrot.species}, earning ${brainrot.rate}/s!`)
 	completeMissionIfReady(runtime, "docked", 1)
+	completeQuestsIfReady(runtime)
 	GameService.pushState(runtime)
 end
 
@@ -305,7 +346,7 @@ local function onLockModule(player: Player)
 	end
 	local now = os.clock()
 	if now < runtime.lockCooldownUntil then
-		toast(player, `Shield recharging — {math.ceil(runtime.lockCooldownUntil - now)}s left.`)
+		toast(player, `Shield recharging, {math.ceil(runtime.lockCooldownUntil - now)}s left.`)
 		return
 	end
 	if PlayerState.isModuleLocked(runtime) then
@@ -318,6 +359,7 @@ local function onLockModule(player: Player)
 	GameService.refreshDomes()
 	toast(player, `Module locked for {lockSeconds}s! Nobody can steal from you.`)
 	completeMissionIfReady(runtime, "locked", 1)
+	completeQuestsIfReady(runtime)
 	GameService.pushState(runtime)
 end
 
@@ -369,9 +411,12 @@ local function onStealBrainrot(player: Player)
 	PlayerState.syncDockedToProfile(bestVictim)
 	addToCargo(runtime, stolen)
 	PlayerState.addDiscovered(runtime, stolen.species)
+	runtime.profile.data.questStolen = (runtime.profile.data.questStolen or 0) + 1
+	PlayerDataStore.markDirty(player)
 	fireFx(player, { kind = "steal", position = stealPosition })
 	toast(player, `You stole {stolen.species} from {bestVictim.player.Name}! Run home!`)
 	toast(bestVictim.player, `{player.Name} stole your {stolen.species}!`)
+	completeQuestsIfReady(runtime)
 	GameService.pushState(runtime)
 	GameService.pushState(bestVictim)
 end
@@ -387,7 +432,7 @@ local function onRebirth(player: Player)
 	local cost = PlayerState.getRebirthCost(runtime)
 	local data = runtime.profile.data
 	if data.credits < cost then
-		toast(player, `Rebirth costs ${cost} credits — you have ${math.floor(data.credits)}.`)
+		toast(player, `Rebirth costs ${cost} credits, you have ${math.floor(data.credits)}.`)
 		return
 	end
 	for _, brainrot in runtime.docked do
@@ -406,7 +451,8 @@ local function onRebirth(player: Player)
 	PlayerDataStore.markDirty(player)
 	local rootPosition = getRootPosition(player)
 	fireFx(player, { kind = "confetti", position = rootPosition or Vector3.new(0, 3, 0) })
-	toast(player, `REBIRTH! New station ring — +50% credits forever, +1 pod! (Ring {data.rebirths})`)
+	toast(player, `REBIRTH! New station ring: +50% credits forever, +1 pod! (Ring {data.rebirths})`)
+	completeQuestsIfReady(runtime)
 	GameService.pushState(runtime)
 end
 
@@ -437,6 +483,7 @@ local function onBuyUpgrade(player: Player, track: unknown)
 	runtime.profile.data.upgrades[track] = level + 1
 	PlayerDataStore.markDirty(player)
 	toast(player, `{trackData.displayName} upgraded to {nextLevel.name}!`)
+	completeQuestsIfReady(runtime)
 	GameService.pushState(runtime)
 end
 
@@ -466,10 +513,11 @@ local function onBonkZork(player: Player)
 		return
 	end
 	if distance > BrainrotData.CONFIG.bonkRangeStuds then
-		toast(player, "ZORK is too far away — get closer!")
+		toast(player, "ZORK is too far away, get closer!")
 		return
 	end
 	if ThiefService.bonkZork(player) then
+		completeQuestsIfReady(runtime)
 		GameService.pushState(runtime)
 	end
 end
@@ -512,16 +560,19 @@ local function onPlayerReady(player: Player)
 end
 
 -- Income tick: every second, every player's pods pay out. Missions that
--- track earned credits complete here.
+-- track earned credits complete here, as do the earn quests. Sheltered
+-- players earn double during a storm (Safe Dome bonus).
 local function incomeLoop()
 	while true do
 		task.wait(1)
 		local goldenHour = StormService.isGoldenHour()
 		for _, runtime in PlayerState.getAll() do
-			local rate = PlayerState.getIncomeRate(runtime, goldenHour)
+			local sheltered = isStormSheltered(runtime)
+			local rate = PlayerState.getIncomeRate(runtime, goldenHour, sheltered)
 			if rate > 0 then
 				PlayerState.addCredits(runtime, rate, true)
 				completeMissionIfReady(runtime, "earned", 0)
+				completeQuestsIfReady(runtime)
 			end
 			if runtime.ready then
 				GameService.pushState(runtime)
@@ -712,8 +763,11 @@ function GameService.grantDemoModule(runtime: any)
 	end
 	runtime.profile.data.credits = 50000
 	runtime.profile.data.missionsCompleted = 2
-	runtime.profile.data.missionCaught = 1
+	runtime.profile.data.missionCaught = 6
 	runtime.profile.data.missionDocked = 3
+	runtime.profile.data.missionEarned = 1500
+	runtime.profile.data.missionLocked = 1
+	runtime.profile.data.upgrades = { Beam = 1, Cargo = 1, Shield = 0, Expansion = 0 }
 	PlayerState.syncDockedToProfile(runtime)
 	GameService.pushState(runtime)
 end

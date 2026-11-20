@@ -39,6 +39,9 @@ export type PlayerData = {
 	missionEarned: number,
 	missionLocked: number,
 	totalEarned: number,
+	questStolen: number, -- lifetime steals (round 7 quest stat)
+	questZapped: number, -- times the player drove ZORK off (round 7 quest stat)
+	questsDone: { [string]: boolean }, -- quest ids whose reward was already paid
 	docked: { SavedBrainrot },
 }
 
@@ -93,6 +96,9 @@ local function defaultData(): PlayerData
 		missionEarned = 0,
 		missionLocked = 0,
 		totalEarned = 0,
+		questStolen = 0,
+		questZapped = 0,
+		questsDone = {},
 		docked = {},
 	}
 end
@@ -114,6 +120,12 @@ local function reconcile(stored: { [string]: any }): PlayerData
 					data.discovered[name] = true
 				end
 			end
+		elseif key == "questsDone" and typeof(value) == "table" then
+			for id, done in value :: { [string]: any } do
+				if done == true then
+					data.questsDone[id] = true
+				end
+			end
 		elseif key == "docked" and typeof(value) == "table" then
 			local docked: { SavedBrainrot } = {}
 			for _, entry in value :: { any } do
@@ -129,6 +141,8 @@ local function reconcile(stored: { [string]: any }): PlayerData
 			or key == "missionDocked"
 			or key == "missionEarned"
 			or key == "missionLocked"
+			or key == "questStolen"
+			or key == "questZapped"
 			or key == "totalEarned" then
 			if typeof(value) == "number" and value == value and math.abs(value) ~= math.huge then
 				(data :: any)[key] = value

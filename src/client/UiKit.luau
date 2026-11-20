@@ -20,6 +20,21 @@
 -- every UiKit child sits ABOVE its container via childZIndex, one or two
 -- steps above its GuiObject parent (a ScreenGui parent has no ZIndex, so
 -- the offset itself is the absolute value).
+--
+-- ROUND 7 TEXT RULES (Krstan's order; the round-6 defects, fixed):
+-- * Body text is NEUTRAL, never brown: TEXT is near-black (28,28,32),
+--   MUTED is dark neutral gray (90,90,96). Both pass WCAG AA on cream
+--   (16.2:1 and 6.5:1). The brown INK stays ONLY as a frame/border
+--   outline color, never on glyphs.
+-- * NO glyph stroke on dark text over light panels: a 2-2.5 px stroke in
+--   the same color as the fill merged 11-16 pt letters into unreadable
+--   brown blobs (the ghost/doubled text). A stroke is added ONLY when it
+--   contrasts with the fill (light text on a colored panel or over the 3D
+--   world), in neutral near-black, at most 1.5 px.
+-- * NOTHING below 13 pt: fitText clamps its minimum to 13, and every
+--   default minimum in this kit is 13 or higher.
+-- * Colored text on cream uses the *_DARK variants (4.7-6.0:1), and
+--   buttons use BUTTON_COLORS, darkened so white titles pass 3:1.
 
 -- Engine types used in annotations below (the values come from Roblox at runtime).
 type Color3 = any
@@ -36,16 +51,24 @@ local TweenService = game:GetService("TweenService")
 local UiKit = {}
 
 -- Palette: ink outlines, cream panels, seven candy colors.
-UiKit.INK = Color3.fromRGB(58, 32, 30)
+UiKit.INK = Color3.fromRGB(58, 32, 30) -- frame/button BORDER outlines only, never text
 UiKit.CREAM = Color3.fromRGB(255, 249, 234)
 UiKit.CREAM_DARK = Color3.fromRGB(255, 225, 176)
-UiKit.TEXT = Color3.fromRGB(58, 32, 30) -- ink text on cream panels
-UiKit.MUTED = Color3.fromRGB(140, 110, 100)
+UiKit.TEXT = Color3.fromRGB(28, 28, 32) -- neutral near-black body text on cream (16.2:1)
+UiKit.MUTED = Color3.fromRGB(90, 90, 96) -- dark neutral gray, still AA on cream (6.5:1)
+UiKit.STROKE = Color3.fromRGB(28, 28, 32) -- neutral glyph-stroke color (never brown)
 UiKit.WHITE = Color3.fromRGB(255, 255, 255)
 UiKit.GOLD = Color3.fromRGB(255, 206, 54)
 UiKit.GREEN = Color3.fromRGB(96, 214, 84)
 UiKit.RED = Color3.fromRGB(255, 88, 82)
 UiKit.ACCENT = Color3.fromRGB(64, 168, 255)
+-- Dark variants for COLORED TEXT on cream panels (the candy colors are
+-- 1.4-3.2:1 on cream; these are 4.7-6.0:1).
+UiKit.GOLD_DARK = Color3.fromRGB(150, 98, 0)
+UiKit.GREEN_DARK = Color3.fromRGB(24, 128, 54)
+UiKit.PURPLE_DARK = Color3.fromRGB(122, 62, 200)
+UiKit.BLUE_DARK = Color3.fromRGB(20, 110, 200)
+UiKit.ORANGE_DARK = Color3.fromRGB(200, 100, 0)
 UiKit.COLORS = {
 	green = Color3.fromRGB(96, 214, 84),
 	blue = Color3.fromRGB(64, 168, 255),
@@ -57,6 +80,17 @@ UiKit.COLORS = {
 	cyan = Color3.fromRGB(60, 220, 220),
 	pink = Color3.fromRGB(255, 120, 190),
 } :: { [string]: Color3 }
+-- Darkened button backgrounds: white titles on the candy colors are
+-- 1.9-2.5:1 (green/blue/orange); these pass 3:1 for large display text.
+UiKit.BUTTON_COLORS = {
+	green = Color3.fromRGB(56, 170, 64),
+	blue = Color3.fromRGB(48, 140, 220),
+	red = Color3.fromRGB(230, 70, 65),
+	purple = Color3.fromRGB(150, 90, 230),
+	orange = Color3.fromRGB(210, 115, 20),
+	cyan = Color3.fromRGB(25, 150, 175),
+	gray = Color3.fromRGB(120, 120, 130),
+} :: { [string]: Color3 }
 
 function UiKit.lighten(color: Color3, amount: number): Color3
 	return color:Lerp(Color3.fromRGB(255, 255, 255), amount)
@@ -64,6 +98,42 @@ end
 
 function UiKit.darken(color: Color3, amount: number): Color3
 	return color:Lerp(Color3.fromRGB(0, 0, 0), amount)
+end
+
+-- Relative luminance of a fill color (0-1). Above ~0.3 the fill is light
+-- enough that a thin dark stroke contrasts with it; below it the fill is
+-- dark and a stroke would only thicken the glyphs.
+local function fillLuminance(color: Color3): number
+	local function channel(c: number): number
+		if c <= 0.03928 then
+			return c / 12.92
+		end
+		return ((c + 0.055) / 1.055) ^ 2.4
+	end
+	return 0.2126 * channel(color.R) + 0.7152 * channel(color.G) + 0.0722 * channel(color.B)
+end
+
+-- Round 7 stroke policy: a glyph stroke exists ONLY where it contrasts
+-- with the fill (light text), in neutral near-black, at most 1.5 px.
+-- Dark text gets no stroke at all — the round-6 ghost text came from a
+-- 2-2.5 px stroke in the fill's own color.
+local function addTextStroke(label: TextLabel, fillColor: Color3, requestedThickness: number?)
+	if fillLuminance(fillColor) <= 0.3 then
+		return nil
+	end
+	local thickness = requestedThickness or 1.5
+	if thickness > 1.5 then
+		thickness = 1.5
+	end
+	if thickness <= 0 then
+		return nil
+	end
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = thickness
+	stroke.Color = UiKit.STROKE
+	stroke.LineJoinMode = Enum.LineJoinMode.Round
+	stroke.Parent = label
+	return stroke
 end
 
 -- Vertical shade gradient: lighter at the top, darker at the bottom.
@@ -181,7 +251,9 @@ end
 -- that carries a UIScale (the bouncy press scale) renders at the ~14 pt
 -- default instead of filling the box, so titles now take an explicit
 -- starting size and fitText shrinks them only as far as needed once
--- AbsoluteSize is known. Ink glyph outline so it reads on any background.
+-- AbsoluteSize is known. Round 7: the glyph stroke follows the stroke
+-- policy (light fills only, neutral, max 1.5 px) and the minimum size is
+-- never below 13 pt.
 -- font: "title" (LuckiestGuy) or "body" (FredokaOne).
 function UiKit.text(
 	parent: Instance,
@@ -210,16 +282,12 @@ function UiKit.text(
 	label.TextYAlignment = Enum.TextYAlignment.Center
 	label.ZIndex = childZIndex(parent, 2)
 	label.Parent = parent
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = strokeThickness or 2.5
-	stroke.Color = UiKit.INK
-	stroke.LineJoinMode = Enum.LineJoinMode.Round
-	stroke.Parent = label
+	addTextStroke(label, color, strokeThickness)
 	-- Fit once the label has a real size: buttons are built before their
 	-- ScreenGui is parented, so AbsoluteSize is 0 at creation time and
 	-- only becomes valid after the first layout pass.
 	local maxSize = textSize or 20
-	local minSize = minTextSize or 10
+	local minSize = minTextSize or 13
 	task.spawn(function()
 		if label.AbsoluteSize.X <= 0 then
 			label:GetPropertyChangedSignal("AbsoluteSize"):Wait()
@@ -273,6 +341,7 @@ end
 -- stays "" (its UIStroke is the pill border, not a glyph outline).
 -- titleSize/subSize are the starting TextSizes (fitText shrinks from
 -- there); defaults are 20/13 with a subtitle, 26 without one.
+-- Pass a BUTTON_COLORS color so the white title passes 3:1.
 function UiKit.button(
 	parent: Instance,
 	name: string,
@@ -332,9 +401,9 @@ function UiKit.button(
 		title,
 		UiKit.WHITE,
 		"title",
-		3,
+		1.5,
 		titleMax,
-		10
+		13
 	)
 	titleLabel.ZIndex = button.ZIndex + 1
 	button:SetAttribute("TitleMaxSize", titleMax)
@@ -348,9 +417,9 @@ function UiKit.button(
 			subtitle,
 			Color3.fromRGB(255, 248, 200),
 			"body",
-			2,
+			1.5,
 			subMax,
-			9
+			13
 		)
 		subLabel.ZIndex = button.ZIndex + 1
 		button:SetAttribute("SubMaxSize", subMax)
@@ -373,7 +442,7 @@ function UiKit.setButtonTitle(button: TextButton, title: string)
 		label.Text = title
 		local maxSize = button:GetAttribute("TitleMaxSize")
 		if typeof(maxSize) == "number" then
-			UiKit.fitText(label, maxSize, 10, 2)
+			UiKit.fitText(label, maxSize, 13, 2)
 		end
 	end
 end
@@ -384,7 +453,7 @@ function UiKit.setButtonSubtitle(button: TextButton, subtitle: string)
 		label.Text = subtitle
 		local maxSize = button:GetAttribute("SubMaxSize")
 		if typeof(maxSize) == "number" then
-			UiKit.fitText(label, maxSize, 9, 2)
+			UiKit.fitText(label, maxSize, 13, 2)
 		end
 	end
 end
@@ -433,7 +502,7 @@ function UiKit.makeScrollingFrame(parent: Instance, name: string, position: UDim
 	frame.BackgroundTransparency = transparency
 	frame.BorderSizePixel = 0
 	frame.ScrollBarThickness = 6
-	frame.ScrollBarImageColor3 = Color3.fromRGB(120, 90, 80)
+	frame.ScrollBarImageColor3 = Color3.fromRGB(110, 110, 120)
 	frame.ScrollingDirection = Enum.ScrollingDirection.Y
 	frame.ElasticBehavior = Enum.ElasticBehavior.Never
 	frame.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -445,8 +514,9 @@ function UiKit.makeScrollingFrame(parent: Instance, name: string, position: UDim
 	return frame
 end
 
--- Fixed-size label (FredokaOne) with an ink glyph outline. Pair with
--- fitText for dynamic strings.
+-- Fixed-size label (FredokaOne). Round 7: the glyph stroke follows the
+-- stroke policy (light fills only, neutral, max 1.5 px) — dark text on
+-- cream gets NO stroke. Pair with fitText for dynamic strings.
 function UiKit.makeLabel(
 	parent: Instance,
 	name: string,
@@ -471,11 +541,7 @@ function UiKit.makeLabel(
 	label.TextYAlignment = Enum.TextYAlignment.Center
 	label.ZIndex = childZIndex(parent, 2)
 	label.Parent = parent
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 2
-	stroke.Color = UiKit.INK
-	stroke.LineJoinMode = Enum.LineJoinMode.Round
-	stroke.Parent = label
+	addTextStroke(label, color, 1.5)
 	return label
 end
 
@@ -512,14 +578,16 @@ end
 -- Call after the label is parented (AbsoluteSize must be known). margin is
 -- the breathing room kept at the label's edges (default 8 px; button
 -- labels pass 2 because their size already carries a 6 px side inset).
+-- Round 7: the floor is 13 pt, always — a smaller minimum is clamped up.
 function UiKit.fitText(label: TextLabel, maxTextSize: number, minTextSize: number, margin: number?)
 	local width = label.AbsoluteSize.X
 	if width <= 0 then
 		return
 	end
 	local inset = margin or 8
-	local size = maxTextSize
-	while size > minTextSize do
+	local floorSize = math.max(minTextSize, 13)
+	local size = math.max(maxTextSize, floorSize)
+	while size > floorSize do
 		local measured = TextService:GetTextSize(label.Text, size, label.Font, Vector2.new(width, 10000))
 		if measured.X <= width - inset then
 			break

@@ -22,6 +22,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local requireModule = require :: any
 local BrainrotData = requireModule(ReplicatedStorage:WaitForChild("BrainrotData"))
+local FormatUtil = requireModule(ReplicatedStorage:WaitForChild("FormatUtil"))
 local PlayerState = requireModule(ServerScriptService:WaitForChild("PlayerState"))
 local Remotes = requireModule(ReplicatedStorage:WaitForChild("Remotes"))
 local WildSpawner = requireModule(ServerScriptService:WaitForChild("WildSpawner"))
@@ -141,7 +142,7 @@ local function knockBackExposedPlayers()
 				end
 				local toast = Remotes.get("Toast") :: RemoteEvent?
 				if toast then
-					toast:FireClient(player, "The solar storm threw you back — and your cargo dropped!")
+					toast:FireClient(player, "The solar storm threw you back and your cargo dropped!")
 				end
 			end
 		end
@@ -172,7 +173,7 @@ local function stormLoop()
 		if not skipWarning then
 			setPhase("warning", config.stormWarningSeconds)
 			for remaining = config.stormWarningSeconds, 1, -1 do
-				broadcastBanner("storm-warning", `SOLAR STORM IN {remaining}s — GET TO YOUR DOME!`, remaining)
+				broadcastBanner("storm-warning", `SOLAR STORM IN {FormatUtil.formatCountdown(remaining)} - GET TO YOUR DOME!`, remaining)
 				task.wait(1)
 			end
 		end
@@ -185,7 +186,7 @@ local function stormLoop()
 		WorldBuilder.setAllDomesVisible(true)
 		WildSpawner.irradiateExposed()
 		knockBackExposedPlayers()
-		broadcastBanner("storm-active", "SOLAR STORM! STAY IN YOUR DOME!", config.stormDurationSeconds)
+		broadcastBanner("storm-active", "SOLAR STORM! SHELTER IN THE DOME! DOME PAYS x2!", config.stormDurationSeconds)
 		broadcastStormFlash()
 		task.wait(config.stormDurationSeconds)
 

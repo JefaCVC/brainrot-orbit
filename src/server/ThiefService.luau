@@ -3,10 +3,10 @@
 -- Owns ZORK the Snatcher, the alien thief who raids the station about every
 -- 70 seconds. ZORK sneaks in through the airlock, walks to a random UNLOCKED
 -- module that holds brainrots, grabs one, and runs back to the airlock with
--- it. Any player can drive him off by bonking him 3 times with the Plasma
--- Bat (F) — the third bonk makes him drop the brainrot and flee, and pays
--- the bonker a credit bonus. A locked module is never targeted, so the lock
--- button is the real defence and the bat is the rescue.
+-- it. Any player can drive him off by zapping him 3 times with the Zapper
+-- (F) — the third zap makes him drop the brainrot and flee, and pays
+-- the zapper a credit bonus. A locked module is never targeted, so the lock
+-- button is the real defence and the zapper is the rescue.
 
 -- Engine types used in annotations below (the values come from Roblox at runtime).
 type Player = any
@@ -103,8 +103,8 @@ local function spawnZork(targetRuntime: any)
 	zorkBonks = 0
 	local module = WorldBuilder.MODULES[targetRuntime.moduleIndex]
 	zorkTarget = module.center
-	broadcastBanner("zork", `ZORK the Snatcher is raiding {targetRuntime.player.Name}'s module! Bonk him 3x [F]!`, 0)
-	toastPlayer(targetRuntime.player, "ZORK is coming for your module! Lock it or bonk him!")
+	broadcastBanner("zork", `ZORK the Snatcher is raiding {targetRuntime.player.Name}'s module! Zap him 3x [F]!`, 0)
+	toastPlayer(targetRuntime.player, "ZORK is coming for your module! Lock it or zap him!")
 end
 
 -- ZORK grabs a random docked brainrot from the victim's module and carries
@@ -138,7 +138,7 @@ local function grabBrainrot()
 		brainrotModel:PivotTo(model:GetPivot() * CFrame.new(0, 1.5, -1.5))
 		brainrotModel.Parent = model
 	end
-	toastPlayer(victim, `ZORK grabbed your {stolen.species}! Bonk him 3x to save it!`)
+	toastPlayer(victim, `ZORK grabbed your {stolen.species}! Zap him 3x to save it!`)
 	zorkState = "toAirlock"
 	zorkTarget = WorldBuilder.AIRLOCK_POSITION
 end
@@ -197,16 +197,16 @@ local function onHeartbeat(dt: number)
 	end
 end
 
--- One bonk from the Plasma Bat. The third bonk drives ZORK off: he drops
+-- One zap from the Zapper. The third zap drives ZORK off: he drops
 -- the stolen brainrot (it becomes wild where he stands) and flees, and the
--- bonker earns a credit bonus. Returns true when the bonk landed.
+-- zapper earns a credit bonus. Returns true when the zap landed.
 function ThiefService.bonkZork(bonker: Player): boolean
 	if not ThiefService.isZorkActive() then
 		return false
 	end
 	zorkBonks += 1
 	local model = zorkModel :: Model
-	-- Knock ZORK back a little with every bonk.
+	-- Knock ZORK back a little with every zap.
 	local bonkerRuntime = PlayerState.get(bonker)
 	local character = bonker.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -234,8 +234,9 @@ function ThiefService.bonkZork(bonker: Player): boolean
 		end
 		if bonkerRuntime then
 			PlayerState.addCredits(bonkerRuntime, BrainrotData.CONFIG.zorkBonkBonusCredits, false)
+			bonkerRuntime.profile.data.questZapped = (bonkerRuntime.profile.data.questZapped or 0) + 1
 		end
-		broadcastBanner("zork-driven-off", `BONK! {bonker.Name} drove ZORK off (+{BrainrotData.CONFIG.zorkBonkBonusCredits} credits)!`, 0)
+		broadcastBanner("zork-driven-off", `ZAPPED! {bonker.Name} drove ZORK off (+${BrainrotData.CONFIG.zorkBonkBonusCredits})!`, 0)
 		zorkState = "fleeing"
 		zorkTarget = WorldBuilder.AIRLOCK_POSITION
 	end

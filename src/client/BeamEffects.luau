@@ -4,7 +4,7 @@
 -- FxEvent remote: the tractor beam (a cyan energy cylinder that snaps from
 -- the player to the caught brainrot and fades), the catch burst, the dock
 -- pop with floating +credits text, the steal flash, the rebirth confetti,
--- the storm screen flash, and the BONK! burst when the Plasma Bat lands on
+-- the storm screen flash, and the ZAPPED! burst when the Zapper lands on
 -- ZORK. Round 5 adds: built-in Roblox sounds with varied pitch, giant
 -- "shout" texts + screen flashes for big events, floating +$X cash popups
 -- over the player's own module sign every second, and a home beam from the
@@ -214,7 +214,7 @@ local function showRing(position: Vector3, color: any)
 	end)
 end
 
--- A floating label that rises and fades (BONK!, +$X/s, STOLEN!, NEW RING!).
+-- A floating label that rises and fades (ZAPPED!, +$X/s, STOLEN!, NEW RING!).
 local function showFloatingText(position: Vector3, text: string, color: any, textSize: number)
 	local anchor = Instance.new("Part")
 	anchor.Name = "FloatAnchor"
@@ -240,7 +240,7 @@ local function showFloatingText(position: Vector3, text: string, color: any, tex
 	label.Font = Enum.Font.LuckiestGuy
 	label.TextScaled = true
 	label.TextWrapped = true
-	label.TextStrokeColor3 = Color3.fromRGB(58, 32, 30)
+	label.TextStrokeColor3 = Color3.fromRGB(20, 20, 24)
 	label.TextStrokeTransparency = 0.1
 	label.Parent = tag
 	tag.Parent = anchor
@@ -256,9 +256,9 @@ local function showFloatingText(position: Vector3, text: string, color: any, tex
 	end)
 end
 
--- A floating BONK! label over ZORK that rises and fades.
+-- A floating ZAPPED! label over ZORK that rises and fades.
 local function showBonk(position: Vector3, count: number)
-	showFloatingText(position + Vector3.new(0, 4, 0), `BONK! ({count}/3)`, Color3.fromRGB(255, 210, 60), 28)
+	showFloatingText(position + Vector3.new(0, 4, 0), `ZAPPED! ({count}/3)`, Color3.fromRGB(255, 210, 60), 28)
 	playSound("bonk", 1 + count * 0.15, 0.7)
 end
 
@@ -460,8 +460,8 @@ function BeamEffects.init()
 	shout.TextTransparency = 1
 	shout.Parent = gui
 	local shoutStroke = Instance.new("UIStroke")
-	shoutStroke.Thickness = 5
-	shoutStroke.Color = Color3.fromRGB(58, 32, 30)
+	shoutStroke.Thickness = 3
+	shoutStroke.Color = Color3.fromRGB(20, 20, 24)
 	shoutStroke.Transparency = 1
 	shoutStroke.Parent = shout
 	local shoutScale = Instance.new("UIScale")

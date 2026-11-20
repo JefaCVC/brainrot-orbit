@@ -44,9 +44,9 @@ local everLocked = false
 local doneShownAt = 0
 
 local STEP_TEXTS = {
-	"1/3  Catch a wild brainrot — press [E]",
-	"2/3  Dock it in a pod in your module — [E]",
-	"3/3  Lock your module to stay safe — [L]",
+	"1/3  Catch a wild brainrot - press [E]",
+	"2/3  Dock it in a pod in your module - [E]",
+	"3/3  Lock your module to stay safe - [L]",
 	"You're set! Earn credits, upgrade, rebirth.",
 } :: { string }
 
@@ -227,7 +227,7 @@ local function refreshFromState(state: { [string]: any }?)
 		return
 	end
 	stepLabel.Text = STEP_TEXTS[step]
-	UiKit.fitText(stepLabel, 15, 12)
+	UiKit.fitText(stepLabel, 15, 13)
 	tutorialFrame.Visible = not TitleController.isVisible()
 	updateBeacon()
 end
@@ -254,9 +254,9 @@ function TutorialController.init()
 	local frame = UiKit.panel(gui, "Tutorial", UDim2.new(0, 12, 0, 120), UDim2.new(0, 320, 0, 76), nil)
 	frame.Visible = false
 	tutorialFrame = frame
-	UiKit.makeLabel(frame, "Title", UDim2.new(0, 10, 0, 4), UDim2.new(0, 120, 0, 22), "TUTORIAL", 14, UiKit.COLORS.orange, true).TextXAlignment =
+	UiKit.makeLabel(frame, "Title", UDim2.new(0, 10, 0, 4), UDim2.new(0, 120, 0, 22), "TUTORIAL", 14, UiKit.ORANGE_DARK, true).TextXAlignment =
 		Enum.TextXAlignment.Left
-	local dismiss = UiKit.button(frame, "Dismiss", UDim2.new(1, -34, 0, 4), UDim2.new(0, 28, 0, 28), UiKit.COLORS.red, "X", nil)
+	local dismiss = UiKit.button(frame, "Dismiss", UDim2.new(1, -34, 0, 4), UDim2.new(0, 28, 0, 28), UiKit.BUTTON_COLORS.red, "X", nil)
 	dismiss.MouseButton1Click:Connect(function()
 		TutorialController.hide()
 	end)

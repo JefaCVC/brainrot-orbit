@@ -37,7 +37,8 @@ local TITLE_CAMERA_POSITION = Vector3.new(0, 6.5, 10)
 local TITLE_CAMERA_TARGET = Vector3.new(0, 3.5, -14)
 
 -- One logo line: LuckiestGuy, a two-color gradient, -3 degrees of tilt and
--- a thick ink stroke.
+-- a neutral dark stroke (round 7: no brown anywhere in text; 4 px is
+-- proportional on ~60 px glyphs, like 1.5 px on 15 pt body text).
 local function logoLine(parent: Instance, name: string, y: number, text: string, fromColor: Color3, toColor: Color3): TextLabel
 	local label = Instance.new("TextLabel")
 	label.Name = name
@@ -58,8 +59,8 @@ local function logoLine(parent: Instance, name: string, y: number, text: string,
 	})
 	gradient.Parent = label
 	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 6
-	stroke.Color = UiKit.INK
+	stroke.Thickness = 4
+	stroke.Color = UiKit.STROKE
 	stroke.LineJoinMode = Enum.LineJoinMode.Round
 	stroke.Parent = label
 	return label
@@ -144,8 +145,21 @@ local function buildTitleGui(playerGui: Instance)
 		true
 	)
 
+	-- Feature line under the tagline: the whole game in one glance.
+	UiKit.makeLabel(
+		gui,
+		"FeatureLine",
+		UDim2.new(0.5, -420, 0, 200),
+		UDim2.new(0, 840, 0, 28),
+		"30 ALIEN BRAINROTS - 6 RARITIES - 4 MUTATIONS - ZAP RAIDERS - LOCK YOUR STATION",
+		16,
+		UiKit.WHITE,
+		true
+	)
+
 	-- The 3-step how-to: three colored cards in a row, low enough that the
-	-- showcase stage shows above them.
+	-- showcase stage shows above them. Card colors are darkened 35% so
+	-- the white text passes 4.2:1 or better.
 	local steps = {
 		{ "1", "CATCH", "Tractor-beam a wild\nbrainrot  [E]", UiKit.COLORS.blue },
 		{ "2", "CARRY HOME", "Before the solar\nstorm hits", UiKit.COLORS.orange },
@@ -153,16 +167,16 @@ local function buildTitleGui(playerGui: Instance)
 	} :: { { any } }
 	for i, step in steps do
 		local x = -465 + (i - 1) * 320
-		local card = UiKit.panel(gui, `StepCard{i}`, UDim2.new(0.5, x, 0.62, 0), UDim2.new(0, 310, 0, 96), step[4])
+		local card = UiKit.panel(gui, `StepCard{i}`, UDim2.new(0.5, x, 0.62, 0), UDim2.new(0, 310, 0, 96), UiKit.darken(step[4], 0.35))
 		UiKit.makeLabel(card, "StepNumber", UDim2.new(0, 10, 0, 6), UDim2.new(0, 40, 0, 40), step[1], 30, UiKit.WHITE, true)
 		UiKit.makeLabel(card, "StepTitle", UDim2.new(0, 52, 0, 6), UDim2.new(1, -62, 0, 40), step[2], 20, UiKit.WHITE, true).TextXAlignment =
 			Enum.TextXAlignment.Left
-		UiKit.makeLabel(card, "StepText", UDim2.new(0, 10, 0, 48), UDim2.new(1, -20, 0, 44), step[3], 15, UiKit.WHITE, false).TextXAlignment =
+		UiKit.makeLabel(card, "StepText", UDim2.new(0, 10, 0, 48), UDim2.new(1, -20, 0, 44), step[3], 15, UiKit.WHITE, true).TextXAlignment =
 			Enum.TextXAlignment.Left
 	end
 
 	-- Pulsing PLAY button (the pulse loop runs in init).
-	playButton = UiKit.button(gui, "PlayButton", UDim2.new(0.5, -150, 1, -128), UDim2.new(0, 300, 0, 86), UiKit.COLORS.green, "▶  PLAY", "Catch them all!", 30, 15)
+	playButton = UiKit.button(gui, "PlayButton", UDim2.new(0.5, -150, 1, -128), UDim2.new(0, 300, 0, 86), UiKit.BUTTON_COLORS.green, "▶  PLAY", "Catch them all!", 30, 15)
 	playButton.MouseButton1Click:Connect(function()
 		TitleController.dismiss()
 	end)
@@ -171,7 +185,7 @@ local function buildTitleGui(playerGui: Instance)
 		"Footer",
 		UDim2.new(0.5, -420, 1, -36),
 		UDim2.new(0, 840, 0, 28),
-		"E catch / dock / steal    •    L lock module    •    F bonk ZORK    •    Q drop cargo",
+		"E catch / dock / steal    •    L lock module    •    F zap ZORK    •    Q drop cargo",
 		16,
 		UiKit.WHITE,
 		false

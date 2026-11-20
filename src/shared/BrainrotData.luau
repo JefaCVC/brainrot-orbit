@@ -183,12 +183,78 @@ BrainrotData.UPGRADES = {
 
 -- The 4-mission chain. The HUD always shows the next goal. Mission 4 teaches
 -- the lock verb, which is the player's only real defence against thieves.
+-- Texts are kept short so the mission strip fits at a readable size.
 BrainrotData.MISSIONS = {
 	{ id = "catch1", text = "Catch a brainrot (E)", goal = 1, reward = 100, stat = "caught" },
-	{ id = "dock3", text = "Dock 3 brainrots in your pods", goal = 3, reward = 500, stat = "docked" },
-	{ id = "earn2000", text = "Earn 2,000 credits total", goal = 2000, reward = 1500, stat = "earned" },
+	{ id = "dock3", text = "Dock 3 brainrots", goal = 3, reward = 500, stat = "docked" },
+	{ id = "earn2000", text = "Earn 2,000 credits", goal = 2000, reward = 1500, stat = "earned" },
 	{ id = "lock1", text = "Lock your module (L)", goal = 1, reward = 2500, stat = "locked" },
 } :: { Mission }
+
+export type Quest = {
+	id: string,
+	text: string,
+	goal: number,
+	reward: number, -- credits paid when the quest completes
+	stat: string, -- "caught" | "docked" | "earned" | "locked" | "discovered" | "upgrades" | "rebirths" | "stolen" | "zapped"
+}
+
+-- The 14 station quests (round 7). Unlike the mission chain, every quest
+-- tracks its own stat in parallel, so several can complete at once. All
+-- stats come from the saved profile (or are derived from it), so progress
+-- survives a rejoin. Rewards are paid once per quest, the first time its
+-- goal is reached.
+BrainrotData.QUESTS = {
+	{ id = "q_catch1", text = "Catch your first brainrot", goal = 1, reward = 100, stat = "caught" },
+	{ id = "q_catch10", text = "Catch 10 brainrots", goal = 10, reward = 800, stat = "caught" },
+	{ id = "q_catch25", text = "Catch 25 brainrots", goal = 25, reward = 2500, stat = "caught" },
+	{ id = "q_dock3", text = "Dock 3 brainrots in your pods", goal = 3, reward = 500, stat = "docked" },
+	{ id = "q_dock8", text = "Dock 8 brainrots in your pods", goal = 8, reward = 2000, stat = "docked" },
+	{ id = "q_earn2k", text = "Earn 2,000 credits", goal = 2000, reward = 1500, stat = "earned" },
+	{ id = "q_earn50k", text = "Earn 50,000 credits", goal = 50000, reward = 6000, stat = "earned" },
+	{ id = "q_lock1", text = "Lock your module once", goal = 1, reward = 2500, stat = "locked" },
+	{ id = "q_lock3", text = "Lock your module 3 times", goal = 3, reward = 4000, stat = "locked" },
+	{ id = "q_find5", text = "Find 5 Star Chart entries", goal = 5, reward = 1000, stat = "discovered" },
+	{ id = "q_find15", text = "Find 15 Star Chart entries", goal = 15, reward = 5000, stat = "discovered" },
+	{ id = "q_upg2", text = "Buy 2 upgrades", goal = 2, reward = 1200, stat = "upgrades" },
+	{ id = "q_steal1", text = "Steal a brainrot from a rival", goal = 1, reward = 1500, stat = "stolen" },
+	{ id = "q_zap1", text = "Zap ZORK away from the station", goal = 1, reward = 1500, stat = "zapped" },
+} :: { Quest }
+
+-- One-line flavor text per species (round 7): tap a tile in the Star Chart
+-- to read its line. Plain human English, one joke each.
+BrainrotData.FLAVOR = {
+	["Bloop Blorp"] = "Blorps when happy. Blorps when sad. Mostly just blorps.",
+	["Pixel Puff"] = "Nobody knows if it is a pet or a screensaver.",
+	["Zorp Zorp"] = "Named itself twice because once was not enough.",
+	["Gloob Glorp"] = "Smells like grape soda and poor decisions.",
+	["Luna Lolly"] = "Made of moonlight and sugar. Do not lick it.",
+	["Comet Croissant"] = "Flaky, fast, and gone before breakfast.",
+	["Cosmo Cookie"] = "Baked in zero gravity. Still crumbles everywhere.",
+	["Plasma Pingu"] = "A penguin that runs on static electricity.",
+	["Nebula Noodle"] = "Slippery in five dimensions at once.",
+	["Quantum Quiche"] = "It is both here and in the fridge until you look.",
+	["Astro Mochi"] = "Soft, round, and impossible to stay mad at.",
+	["Void Vito"] = "Speaks in whispers. The whispers echo.",
+	["Gravity Grape"] = "Falls up on Tuesdays. Nobody has explained it.",
+	["Meteor Mochi"] = "Arrived by crashing. Stayed for the snacks.",
+	["Galactic Gumbo"] = "A stew that learned to walk. A slow walker.",
+	["Star S'more"] = "Toasted by an actual star. Still gooey inside.",
+	["Eclipse Eel"] = "Only comes out when the sun goes away.",
+	["Cosmo Corgi"] = "Short legs, long orbit, zero fear.",
+	["Lunar Llama"] = "Hums at the moon. The moon hums back.",
+	["Asteroid Axolotl"] = "Smiles at everything, including the void.",
+	["Solar Squirrel"] = "Stores sunshine in its cheeks for winter.",
+	["Orbit Ostrich"] = "Too big to fly, too fast to catch.",
+	["Warp Whale"] = "Sings songs that arrive before it does.",
+	["Quasar Quokka"] = "The happiest thing in the known universe.",
+	["Pulsar Panda"] = "Blinks in perfect rhythm. Great at parties.",
+	["Galaxy Gator"] = "Has a whole spiral arm in its smile.",
+	["Nova Narwhal"] = "Its horn points at whatever is about to explode.",
+	["Supernova Sloth"] = "Moves slowly. Explodes quickly. Plan accordingly.",
+	["Dark Matter Donut"] = "Invisible filling. You can taste the mystery.",
+	["Big Bang Burrito"] = "One bite created a universe. Two bites, a food coma.",
+} :: { [string]: string }
 
 -- Tuned constants for the whole game.
 BrainrotData.CONFIG = {

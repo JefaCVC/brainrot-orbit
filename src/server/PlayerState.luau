@@ -174,17 +174,22 @@ function PlayerState.getBaseRate(runtime: PlayerRuntime): number
 	return total
 end
 
--- Income multiplier: +50% per rebirth ring, doubled during Golden Hour.
-function PlayerState.getMultiplier(runtime: PlayerRuntime, goldenHourActive: boolean): number
+-- Income multiplier: +50% per rebirth ring, doubled during Golden Hour,
+-- and doubled again while sheltered inside a shield dome during a solar
+-- storm (round 7 Safe Dome bonus: hiding pays).
+function PlayerState.getMultiplier(runtime: PlayerRuntime, goldenHourActive: boolean, stormSheltered: boolean?): number
 	local multiplier = 1 + runtime.profile.data.rebirths * BrainrotData.CONFIG.rebirthMultiplierPerRing
 	if goldenHourActive then
 		multiplier *= BrainrotData.CONFIG.goldenHourMultiplier
 	end
+	if stormSheltered then
+		multiplier *= 2
+	end
 	return multiplier
 end
 
-function PlayerState.getIncomeRate(runtime: PlayerRuntime, goldenHourActive: boolean): number
-	return PlayerState.getBaseRate(runtime) * PlayerState.getMultiplier(runtime, goldenHourActive)
+function PlayerState.getIncomeRate(runtime: PlayerRuntime, goldenHourActive: boolean, stormSheltered: boolean?): number
+	return PlayerState.getBaseRate(runtime) * PlayerState.getMultiplier(runtime, goldenHourActive, stormSheltered)
 end
 
 function PlayerState.getUpgradeLevel(runtime: PlayerRuntime, track: string): number
@@ -394,6 +399,76 @@ end
 -- Rebirth cost: 5,000 credits, doubling with every ring.
 function PlayerState.getRebirthCost(runtime: PlayerRuntime): number
 	return BrainrotData.CONFIG.rebirthBaseCost * (2 ^ runtime.profile.data.rebirths)
+end
+
+-- The live value of one quest's stat, read from the saved profile (or
+-- derived from it: discovered counts the Star Chart, upgrades sums the
+-- four tracks).
+local function getQuestStatValue(runtime: PlayerRuntime, stat: string): number
+	local data = runtime.profile.data
+	if stat == "caught" then
+		return data.missionCaught
+	elseif stat == "docked" then
+		return data.missionDocked
+	elseif stat == "earned" then
+		return data.missionEarned
+	elseif stat == "locked" then
+		return data.missionLocked
+	elseif stat == "discovered" then
+		local count = 0
+		for _ in data.discovered do
+			count += 1
+		end
+		return count
+	elseif stat == "upgrades" then
+		local total = 0
+		for _, level in data.upgrades do
+			total += level
+		end
+		return total
+	elseif stat == "rebirths" then
+		return data.rebirths
+	elseif stat == "stolen" then
+		return data.questStolen or 0
+	elseif stat == "zapped" then
+		return data.questZapped or 0
+	end
+	return 0
+end
+
+-- Every quest with its live progress and done flag, in table order. This
+-- is what the client renders in the Quests panel.
+function PlayerState.getQuestStates(runtime: PlayerRuntime): { any }
+	local states: { any } = {}
+	for _, quest in BrainrotData.QUESTS do
+		table.insert(states, {
+			id = quest.id,
+			text = quest.text,
+			progress = math.min(getQuestStatValue(runtime, quest.stat), quest.goal),
+			goal = quest.goal,
+			reward = quest.reward,
+			done = runtime.profile.data.questsDone[quest.id] == true,
+		})
+	end
+	return states
+end
+
+-- Pays every quest that JUST completed (goal reached, reward not yet
+-- paid). Returns the completed quests so the caller can announce them.
+-- Idempotent: a quest already in questsDone is never paid twice.
+function PlayerState.completeQuests(runtime: PlayerRuntime): { any }
+	local completed: { any } = {}
+	for _, quest in BrainrotData.QUESTS do
+		if runtime.profile.data.questsDone[quest.id] ~= true and getQuestStatValue(runtime, quest.stat) >= quest.goal then
+			runtime.profile.data.questsDone[quest.id] = true
+			PlayerState.addCredits(runtime, quest.reward, false)
+			table.insert(completed, quest)
+		end
+	end
+	if #completed > 0 then
+		PlayerDataStore.markDirty(runtime.player)
+	end
+	return completed
 end
 
 return PlayerState
